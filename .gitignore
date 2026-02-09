@@ -1,6 +1,7 @@
 # Custom Add
 *.ipynb
 memo.md
+experiments/clone_train.py
 
 # Python
 __pycache__/
