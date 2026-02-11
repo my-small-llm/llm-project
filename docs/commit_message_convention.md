@@ -3,7 +3,8 @@
 ## 형식
 
 ```
-<type>(<scope>): <subject>
+<type>(<scope>): <subject>  # scope 선택
+<type>: <subject>
 
 <body> (선택)
 
@@ -22,7 +23,7 @@
 | `chore` | 빌드, 스크립트 등 기타 잡무 |
 | `exp` | 파이프라인과 무관한 탐색/실험 코드 |
 
-## Scope (필수) - 도메인을 scope로 구분
+## Scope (선택) - 도메인을 scope로 구분
 
 | Scope | 설명 |
 |-------|------|
@@ -54,7 +55,7 @@ refactor(training): dataset 로딩 로직 공통 유틸로 분리
 docs: README에 실행 방법 추가
 chore: run_train.sh 실행 권한 추가
 
-exp(experiment): GLM-4-9B 추론 테스트 스크립트 추가
+exp: GLM-4-9B 추론 테스트 스크립트 추가
 exp(experiment): Qwen3-8B 응답 비교 실험 스크립트 추가
 exp(training): LoRA 파라미터 스윕 실험 스크립트 추가
 ```
@@ -65,5 +66,5 @@ exp(training): LoRA 파라미터 스윕 실험 스크립트 추가
 2. type과 scope는 소문자로 작성
 3. subject 끝에 마침표 금지
 4. body가 필요한 경우 빈 줄로 구분하여 상세 내용 기술
-5. scope를 통해 어떤 도메인의 변경인지 명확히 구분
-6. 파이프라인과 무관한 실험은 `exp` 타입을 사용하고, 레포와 직접 연관이 없으면 scope는 `experiment`로 작성
+5. scope가 명확하면 사용하고, 해당사항이 없으면 생략 가능
+6. 파이프라인과 무관한 실험은 `exp` 타입을 사용하고, 레포와 직접 연관이 없으면 scope로 `experiment` 사용을 권장
