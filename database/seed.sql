@@ -1,0 +1,105 @@
+-- Generated Seed Data
+TRUNCATE order_items, orders, cart_items, carts, menu_items, restaurants, addresses, users CASCADE;
+
+-- 1. Users & Addresses
+INSERT INTO users (id, email, phone, name) VALUES ('a1661d37-87bb-44e9-b2b3-ad951c237ba5', 'user1@example.com', '010-3263-5473', '박민수');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('5de58ac8-a949-4527-ba6f-e6729b967ae3', 'a1661d37-87bb-44e9-b2b3-ad951c237ba5', '박민수', '010-3263-5473', '서울시 송파구 테헤란로 582', '185호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('928ef291-19a0-4408-90f0-b130a019c19f', 'user2@example.com', '010-1309-9521', '조예준');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('80d27ca1-db16-4f2b-8375-4551f5bb5f6a', '928ef291-19a0-4408-90f0-b130a019c19f', '조예준', '010-1309-9521', '서울시 서초구 테헤란로 156', '612호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('fac75497-7df8-4902-bda6-066e60a1f5ef', 'user3@example.com', '010-2261-3897', '김하은');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('5b9f534f-86b8-4711-9960-e6203445d1f1', 'fac75497-7df8-4902-bda6-066e60a1f5ef', '김하은', '010-2261-3897', '서울시 강남구 테헤란로 401', '1438호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('47d67a36-584a-4154-8a7c-e9eb74ee1326', 'user4@example.com', '010-4185-3650', '장영희');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('4d1cc420-e4dd-49fc-83b0-ccc534fa70e2', '47d67a36-584a-4154-8a7c-e9eb74ee1326', '장영희', '010-4185-3650', '서울시 서초구 테헤란로 561', '240호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('af1b5d7a-f9db-479f-9749-226ba884f3ff', 'user5@example.com', '010-2291-2586', '박철수');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('642ff8ff-8529-4719-99cd-1fb5e7dcae0f', 'af1b5d7a-f9db-479f-9749-226ba884f3ff', '박철수', '010-2291-2586', '서울시 송파구 테헤란로 676', '1662호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('531a4da5-92a9-4aa4-a4d2-a2e67ecb838d', 'user6@example.com', '010-3861-6707', '정서준');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('53e17944-5ee3-4783-9a3e-2e39796d6491', '531a4da5-92a9-4aa4-a4d2-a2e67ecb838d', '정서준', '010-3861-6707', '서울시 송파구 테헤란로 355', '322호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('dd1fbd52-cd42-4a6e-b943-44a36e4e7f2d', 'user7@example.com', '010-1963-7271', '이지우');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('f658333d-3827-455b-992c-2e7f66e3ca88', 'dd1fbd52-cd42-4a6e-b943-44a36e4e7f2d', '이지우', '010-1963-7271', '서울시 강남구 테헤란로 606', '1813호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('1a461d28-9400-44cf-bcd1-b997488cf20e', 'user8@example.com', '010-4251-5029', '최철수');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('5987b26f-0998-4ee5-847a-ba05b886ad9b', '1a461d28-9400-44cf-bcd1-b997488cf20e', '최철수', '010-4251-5029', '서울시 서초구 테헤란로 295', '656호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('83e6d570-ad10-40f0-8aca-0f1cdc63a14f', 'user9@example.com', '010-3271-4383', '이지우');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('3d11589e-096e-430a-834f-fac813858784', '83e6d570-ad10-40f0-8aca-0f1cdc63a14f', '이지우', '010-3271-4383', '서울시 송파구 테헤란로 373', '1356호', TRUE);
+INSERT INTO users (id, email, phone, name) VALUES ('afe98e1c-9ea2-46ef-bbe1-b7fafc08660f', 'user10@example.com', '010-1906-6053', '최서준');
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, line2, is_default) VALUES ('8da4b4ba-28c5-40ee-9766-a88eab58cc31', 'afe98e1c-9ea2-46ef-bbe1-b7fafc08660f', '최서준', '010-1906-6053', '서울시 서초구 테헤란로 825', '1922호', TRUE);
+
+-- 2. Restaurants & Menu Items
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('5087bbb8-8a28-4585-8f80-a01c80489dae', 'BBQ 황금올리브', '치킨', '010-3627-7717', 15000, 4.6, 386, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('6cdbc412-5d89-4092-bf5f-1a8a913dc098', '5087bbb8-8a28-4585-8f80-a01c80489dae', '황금올리브치킨', 20000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('a3f227dc-d276-4916-be61-66cb9aca401e', '5087bbb8-8a28-4585-8f80-a01c80489dae', '양념치킨', 21000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('3b0bcb58-3313-40c0-8dfa-b068b8db33fc', '5087bbb8-8a28-4585-8f80-a01c80489dae', '반반치킨', 21000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('576fc374-442a-4b56-8a9a-925c172474e3', '5087bbb8-8a28-4585-8f80-a01c80489dae', '자소만', 5000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('5ffcdf2f-ecb1-4148-b89d-f7e4edce5ed2', '5087bbb8-8a28-4585-8f80-a01c80489dae', '치즈볼', 4000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('c5a27608-95a2-4bc5-9a3c-5d29869b640b', '교촌치킨', '치킨', '010-1073-6566', 15000, 4.4, 1199, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('76ad5b66-993e-493d-9b79-e46655a78972', 'c5a27608-95a2-4bc5-9a3c-5d29869b640b', '황금올리브치킨', 20000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('0774b631-1534-41d1-9c89-76ec4ee03f91', 'c5a27608-95a2-4bc5-9a3c-5d29869b640b', '양념치킨', 21000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('a3c451df-f442-483e-bd9c-f37a919bd59b', 'c5a27608-95a2-4bc5-9a3c-5d29869b640b', '반반치킨', 21000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('f61afceb-a018-4509-a826-ef1d66ff94a4', 'c5a27608-95a2-4bc5-9a3c-5d29869b640b', '자소만', 5000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('c4518e87-ae7b-499a-a756-bc665c42a94d', 'c5a27608-95a2-4bc5-9a3c-5d29869b640b', '치즈볼', 4000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('5bf97615-d9d6-4beb-86ae-5707850686f5', 'BHC 뿌링클', '치킨', '010-6731-1108', 15000, 4.8, 293, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('76dcb049-afc9-4edb-a8f5-45ed2291dbcc', '5bf97615-d9d6-4beb-86ae-5707850686f5', '황금올리브치킨', 20000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('6db7659d-b694-4378-ba8a-96e3f146d327', '5bf97615-d9d6-4beb-86ae-5707850686f5', '양념치킨', 21000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('0de7ef7e-4680-49b5-b854-25a64e5a1956', '5bf97615-d9d6-4beb-86ae-5707850686f5', '반반치킨', 21000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('c5544c4b-2446-4d3a-bfdd-8e2eda93255c', '5bf97615-d9d6-4beb-86ae-5707850686f5', '자소만', 5000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('b8af4eba-3a28-46dd-9d51-affcbae7c32d', '5bf97615-d9d6-4beb-86ae-5707850686f5', '치즈볼', 4000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('f0e692f8-381d-46ff-b3b1-1cef9674ab55', '도미노피자', '피자', '010-2143-6327', 15000, 4.6, 639, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('5be00dd6-d1c0-4366-86ae-7ffa7d74be41', 'f0e692f8-381d-46ff-b3b1-1cef9674ab55', '포테이토피자', 25000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('c81bee64-dc7a-471f-95b5-b8e160adafb7', 'f0e692f8-381d-46ff-b3b1-1cef9674ab55', '콤비네이션', 23000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('97f772da-f6f0-437d-9682-d227a76adf99', 'f0e692f8-381d-46ff-b3b1-1cef9674ab55', '페퍼로니', 22000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('a8176f34-bd45-4f86-86d6-ea25d3f2a3f6', 'f0e692f8-381d-46ff-b3b1-1cef9674ab55', '치즈오븐스파게티', 8000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('4edbe35d-6ea4-48f5-923b-0f3d7b365267', 'f0e692f8-381d-46ff-b3b1-1cef9674ab55', '콜라 1.25L', 2000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('67053525-18c6-4705-a039-34be07be6633', '피자헛', '피자', '010-5024-5994', 15000, 4.6, 849, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('22e111ab-c876-4e08-a625-88377151d43d', '67053525-18c6-4705-a039-34be07be6633', '포테이토피자', 25000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('b4b9ef35-6541-4bd0-9f8f-f2cf2b050d83', '67053525-18c6-4705-a039-34be07be6633', '콤비네이션', 23000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('5febe6c3-ecb1-4d50-b7d5-96e6d80e8145', '67053525-18c6-4705-a039-34be07be6633', '페퍼로니', 22000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('3f67beec-cae1-4b15-b552-7bd6c7fc9a3a', '67053525-18c6-4705-a039-34be07be6633', '치즈오븐스파게티', 8000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('01723ce2-4134-4e3c-b01a-a73f2495e6d4', '67053525-18c6-4705-a039-34be07be6633', '콜라 1.25L', 2000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('76a2d649-8a13-49fb-8b61-d63fbcaec5ea', '미스터피자', '피자', '010-5430-9838', 15000, 3.9, 488, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('5b7ef720-d087-4c1b-8964-7c80508a9e32', '76a2d649-8a13-49fb-8b61-d63fbcaec5ea', '포테이토피자', 25000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('c851bb55-ad8e-4a1e-a645-1820e8a00aea', '76a2d649-8a13-49fb-8b61-d63fbcaec5ea', '콤비네이션', 23000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('210b0ddf-b1f7-4820-8f6b-de770ffc7440', '76a2d649-8a13-49fb-8b61-d63fbcaec5ea', '페퍼로니', 22000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('017efa50-1fdb-4a2a-8a1c-e81549f11f4e', '76a2d649-8a13-49fb-8b61-d63fbcaec5ea', '치즈오븐스파게티', 8000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('cb2a3412-733f-4d9f-bbd8-a03a8c10a191', '76a2d649-8a13-49fb-8b61-d63fbcaec5ea', '콜라 1.25L', 2000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('baa27922-d2be-422c-8d9b-7df32a672e50', '본죽', '한식', '010-1740-1610', 15000, 4.4, 1199, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('34e86f70-8e9c-4434-821a-0566c75b3ba7', 'baa27922-d2be-422c-8d9b-7df32a672e50', '야채죽', 10000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('a4ae882f-09b3-424e-b8d2-02e83d7a78fb', 'baa27922-d2be-422c-8d9b-7df32a672e50', '전복죽', 12000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('fa4dd79b-5427-4dfa-b37f-801fa3bcc678', 'baa27922-d2be-422c-8d9b-7df32a672e50', '소고기버섯죽', 11000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('53fad3cb-55db-4042-8c38-52aabb306f91', 'baa27922-d2be-422c-8d9b-7df32a672e50', '낙지김치죽', 11000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('81639892-0249-4e68-9ce2-a4147879e134', 'baa27922-d2be-422c-8d9b-7df32a672e50', '호박죽', 9000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('5d00b34d-4c20-4e5d-8f5d-ddcafb96788c', '엽기떡볶이', '분식', '010-6247-4532', 15000, 4.4, 227, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('2d555139-0554-4efb-a927-86df490280c9', '5d00b34d-4c20-4e5d-8f5d-ddcafb96788c', '떡볶이', 14000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('3472ef10-10d4-4376-bc4e-d2797f00bed7', '5d00b34d-4c20-4e5d-8f5d-ddcafb96788c', '순대', 4000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('3aca9357-74be-4545-946e-c143d2776543', '5d00b34d-4c20-4e5d-8f5d-ddcafb96788c', '모듬튀김', 5000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('6d20c98e-5334-4178-b1c5-4f4964ed166d', '5d00b34d-4c20-4e5d-8f5d-ddcafb96788c', '오뎅탕', 6000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('a34572f7-6260-44e1-b0d3-871b7c248412', '5d00b34d-4c20-4e5d-8f5d-ddcafb96788c', '주먹밥', 3000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('805793f9-ac4a-4ece-8f78-0ad597cde884', '김가네', '분식', '010-1571-1994', 15000, 4.7, 708, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('82ec283c-8bba-44ed-805a-0d7e262db7fb', '805793f9-ac4a-4ece-8f78-0ad597cde884', '떡볶이', 14000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('4a01a77c-a5e3-44f4-b7f5-66e1a9b0c5e6', '805793f9-ac4a-4ece-8f78-0ad597cde884', '순대', 4000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('b0debfdb-a196-4f52-a89f-e445490f374a', '805793f9-ac4a-4ece-8f78-0ad597cde884', '모듬튀김', 5000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('79f683f1-1f3b-4aef-8c41-8f7cf4eca5f1', '805793f9-ac4a-4ece-8f78-0ad597cde884', '오뎅탕', 6000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('4ebc7430-6f23-427c-a7b3-5704b7daeb2b', '805793f9-ac4a-4ece-8f78-0ad597cde884', '주먹밥', 3000, 5);
+INSERT INTO restaurants (id, name, category, phone, min_order_amount, rating_avg, rating_count, is_active, is_open_weekday, weekday_open, weekday_close, is_open_weekend, weekend_open, weekend_close) VALUES ('132de756-5c6b-4d77-8bdf-4c379a35530d', '홍콩반점', '중식', '010-3772-7784', 15000, 4.8, 295, TRUE, TRUE, '09:00', '22:00', TRUE, '10:00', '22:00');
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('c6ed73d6-2a9f-40bf-9b34-b6d872e34169', '132de756-5c6b-4d77-8bdf-4c379a35530d', '짜장면', 7000, 1);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('5106b674-43b0-4b30-a2eb-bb5d7e90badc', '132de756-5c6b-4d77-8bdf-4c379a35530d', '짬뽕', 8000, 2);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('c06c8633-6869-449c-a99a-4c597b5c0d07', '132de756-5c6b-4d77-8bdf-4c379a35530d', '탕수육(소)', 15000, 3);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('2a44cd0f-8f6e-47f6-88d4-fb959acb08ca', '132de756-5c6b-4d77-8bdf-4c379a35530d', '군만두', 6000, 4);
+INSERT INTO menu_items (id, restaurant_id, name, base_price, sort_order) VALUES ('1d791801-71b1-461d-8ee5-362f2f7b0d33', '132de756-5c6b-4d77-8bdf-4c379a35530d', '볶음밥', 8000, 5);
+
+-- 3. Carts
+INSERT INTO carts (id, user_id, restaurant_id) VALUES ('8c787cd2-c2fb-49ac-9a1a-be1f2839b3bc', '531a4da5-92a9-4aa4-a4d2-a2e67ecb838d', '76a2d649-8a13-49fb-8b61-d63fbcaec5ea');
+INSERT INTO cart_items (id, cart_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('1b132098-ef57-4ddb-adda-e85606bc2e66', '8c787cd2-c2fb-49ac-9a1a-be1f2839b3bc', 'cb2a3412-733f-4d9f-bbd8-a03a8c10a191', '콜라 1.25L', 2000, 2);
+INSERT INTO cart_items (id, cart_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('74910c0c-ba25-4955-b547-c097b01db58b', '8c787cd2-c2fb-49ac-9a1a-be1f2839b3bc', '017efa50-1fdb-4a2a-8a1c-e81549f11f4e', '치즈오븐스파게티', 8000, 3);
+INSERT INTO carts (id, user_id, restaurant_id) VALUES ('26084f5e-2ede-431b-9f84-c77b546036fc', '83e6d570-ad10-40f0-8aca-0f1cdc63a14f', '805793f9-ac4a-4ece-8f78-0ad597cde884');
+INSERT INTO cart_items (id, cart_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('237953af-6655-46d6-a12e-d271491d77ef', '26084f5e-2ede-431b-9f84-c77b546036fc', '82ec283c-8bba-44ed-805a-0d7e262db7fb', '떡볶이', 14000, 2);
+INSERT INTO carts (id, user_id, restaurant_id) VALUES ('8228ba8a-6f12-4459-862b-83a3fb6f1a1c', '928ef291-19a0-4408-90f0-b130a019c19f', '805793f9-ac4a-4ece-8f78-0ad597cde884');
+INSERT INTO cart_items (id, cart_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('f978b556-e392-4785-8d04-7ce53b85884c', '8228ba8a-6f12-4459-862b-83a3fb6f1a1c', '79f683f1-1f3b-4aef-8c41-8f7cf4eca5f1', '오뎅탕', 6000, 3);
+INSERT INTO cart_items (id, cart_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('1b21b235-b40f-45c1-bd34-c6bb5715ebb3', '8228ba8a-6f12-4459-862b-83a3fb6f1a1c', 'b0debfdb-a196-4f52-a89f-e445490f374a', '모듬튀김', 5000, 1);
+INSERT INTO carts (id, user_id, restaurant_id) VALUES ('ff9ad829-e270-497d-a4b5-1e63c564e2c6', '47d67a36-584a-4154-8a7c-e9eb74ee1326', '67053525-18c6-4705-a039-34be07be6633');
+INSERT INTO cart_items (id, cart_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('2283cda9-1085-48e9-bd54-f4b770cf9f21', 'ff9ad829-e270-497d-a4b5-1e63c564e2c6', '01723ce2-4134-4e3c-b01a-a73f2495e6d4', '콜라 1.25L', 2000, 1);
+
+-- 4. Orders
+INSERT INTO orders (id, user_id, restaurant_id, status, delivery_recipient_name, delivery_phone, delivery_line1, delivery_line2, subtotal_amount, delivery_fee_amount, discount_amount, total_amount, payment_method, pg_id, payment_status, paid_at) VALUES ('067d0c41-02d6-47c3-b60f-757d2a72713a', '1a461d28-9400-44cf-bcd1-b997488cf20e', '805793f9-ac4a-4ece-8f78-0ad597cde884', 'delivered', '최철수', '010-4251-5029', '서울시 강남구', '101호', 20000, 3000, 0, 23000, 'card', 'imp_703809', 'paid', NOW());
+INSERT INTO order_items (id, order_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('4eb389c4-1b93-4900-85d3-9b56c68d27fd', '067d0c41-02d6-47c3-b60f-757d2a72713a', '4ebc7430-6f23-427c-a7b3-5704b7daeb2b', '주먹밥', 3000, 2);
+INSERT INTO order_items (id, order_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('92b28890-c80a-4f2a-b648-c79e48695588', '067d0c41-02d6-47c3-b60f-757d2a72713a', '82ec283c-8bba-44ed-805a-0d7e262db7fb', '떡볶이', 14000, 1);
+INSERT INTO orders (id, user_id, restaurant_id, status, delivery_recipient_name, delivery_phone, delivery_line1, delivery_line2, subtotal_amount, delivery_fee_amount, discount_amount, total_amount, payment_method, pg_id, payment_status, paid_at) VALUES ('63e3c093-0636-46e5-8b45-862907eae1a5', 'fac75497-7df8-4902-bda6-066e60a1f5ef', '805793f9-ac4a-4ece-8f78-0ad597cde884', 'delivered', '김하은', '010-2261-3897', '서울시 강남구', '101호', 6000, 3000, 0, 9000, 'card', 'imp_657609', 'paid', NOW());
+INSERT INTO order_items (id, order_id, menu_item_id, name_snapshot, unit_price_snapshot, quantity) VALUES ('0c3f4bd1-4289-4ef2-b95e-797f504784ed', '63e3c093-0636-46e5-8b45-862907eae1a5', '4ebc7430-6f23-427c-a7b3-5704b7daeb2b', '주먹밥', 3000, 2);

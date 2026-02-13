@@ -1,6 +1,8 @@
 # Custom Add
-*.ipynb
+# *.ipynb
 memo.md
+.bak
+CLAUDE.md
 
 # Python
 __pycache__/
@@ -36,3 +38,4 @@ outputs/checkpoints/
 outputs/logs/
 data/raw/
 data/processed/
+experiments/clone_*.py
