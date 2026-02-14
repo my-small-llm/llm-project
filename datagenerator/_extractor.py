@@ -105,8 +105,15 @@ def _parse_functions(source: str, fn_names: list[str]) -> list[dict]:
     return [name_to_info[name] for name in fn_names if name in name_to_info]
 
 
-def extract_specs_text(fn_names: list[str]) -> str:
-    """프롬프트에 삽입할 함수 스펙 텍스트를 반환."""
+def extract_specs_text(fn_names: list[str], include_returns: bool = False) -> str:
+    """프롬프트에 삽입할 함수 스펙 텍스트를 반환.
+
+    Args:
+        fn_names: 추출할 함수명 리스트.
+        include_returns: True이면 각 함수의 Returns 섹션도 포함한다.
+            데이터 생성 시 LLM에게 tool_response 형식을 알려줄 때 사용.
+            저장되는 학습 데이터(system prompt)에는 포함하지 않는다.
+    """
     source = Path(CUSTOM_FUNCTIONS_PATH).read_text(encoding="utf-8")
     parsed = _parse_functions(source, fn_names)
 
@@ -132,7 +139,13 @@ def extract_specs_text(fn_names: list[str]) -> str:
                 args_raw = args_raw.split("Returns:")[0]
             args_section = "\n  Args:" + args_raw.rstrip()
 
-        lines.append(f"[{sig}]\n  설명: {first_line}{args_section}")
+        # Returns 섹션 (include_returns=True 시에만 포함)
+        returns_section = ""
+        if include_returns and "Returns:" in fn["docstring"]:
+            returns_raw = fn["docstring"].split("Returns:")[1].rstrip()
+            returns_section = "\n  Returns:" + returns_raw
+
+        lines.append(f"[{sig}]\n  설명: {first_line}{args_section}{returns_section}")
 
     return "\n\n".join(lines)
 

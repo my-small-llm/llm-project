@@ -1,9 +1,15 @@
 """Jinja2로 Qwen3 chat-template을 렌더링하는 유틸리티."""
 from __future__ import annotations
 
+import json
+
 from jinja2 import Environment, FileSystemLoader
 
 from datagenerator.config import JINJA_TEMPLATE_DIR, JINJA_TEMPLATE_NAME
+
+
+def _tojson_no_ascii(obj: object) -> str:
+    return json.dumps(obj, ensure_ascii=False)
 
 
 def render(messages: list[dict], tools: list[dict]) -> str:
@@ -22,6 +28,7 @@ def render(messages: list[dict], tools: list[dict]) -> str:
         loader=FileSystemLoader(JINJA_TEMPLATE_DIR),
         keep_trailing_newline=True,
     )
+    env.filters["tojson"] = _tojson_no_ascii
     template = env.get_template(JINJA_TEMPLATE_NAME)
     return template.render(
         messages=messages,

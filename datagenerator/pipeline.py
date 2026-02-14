@@ -101,18 +101,20 @@ def _save_sample(
     stem = f"sample_{index:04d}"
 
     # raw JSON 저장
-    json_path = output_dir / f"{stem}.json"
-    json_path.write_text(
-        json.dumps(messages, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    # 일단 막아둡니다. 왜냐하면 레퍼런스와 양식이 다릅니다.
+    # 추후 SFT Trainer를 사용하게되면 후처리 로직이 필요합니다.
+    # json_path = output_dir / f"{stem}.json"
+    # json_path.write_text(
+    #     json.dumps(messages, ensure_ascii=False, indent=2),
+    #     encoding="utf-8",
+    # )
 
     # Qwen3 포맷 렌더링 후 .txt 저장
     txt_path = output_dir / f"{stem}.txt"
     rendered = render(messages, tools)
     txt_path.write_text(rendered, encoding="utf-8")
 
-    logger.info("저장 완료: %s / %s", json_path.name, txt_path.name)
+    logger.info("저장 완료")
 
 
 # ------------------------------------------------------------------
@@ -126,7 +128,9 @@ def run(gen_type: str, fns: list[str], n: int, output_dir: Path) -> None:
 
     if gen_type == "conversation":
         generator = ConversationGenerator(target_fns=fns)
-        function_specs = extract_specs_text(fns)
+        # include_returns=True: LLM이 tool_response 형식을 알고 생성하도록 리턴 타입 포함
+        # 저장되는 학습 데이터(system prompt)에는 리턴 타입 힌트가 없으므로 이원화됨
+        function_specs = extract_specs_text(fns, include_returns=True)
         tools_schema = extract_tools_schema(ALL_FUNCTIONS)
         context = {
             "function_specs": function_specs,
