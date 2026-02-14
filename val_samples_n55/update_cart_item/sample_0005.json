@@ -1,0 +1,78 @@
+[
+  {
+    "role": "system",
+    "content": "당신은 음식 배달 서비스 AI 상담사입니다. 고객의 음식점 검색, 메뉴 확인, 장바구니 관리, 배송지 관리, 주문 및 주문 상태 조회를 도와드립니다. 반드시 제공된 도구(tool)만 사용하여 고객을 응대하세요. 도구로 처리할 수 없는 요청은 정중하게 안내하세요."
+  },
+  {
+    "role": "user",
+    "content": "저기요, 방금 장바구니에 넣은 피자 수량을 좀 줄이고 싶은데요."
+  },
+  {
+    "role": "assistant",
+    "content": "안녕하세요! 장바구니에 있는 피자 수량을 줄이고 싶으시군요. 고객님의 ID와 장바구니 항목 ID를 알려주시면 바로 도와드리겠습니다."
+  },
+  {
+    "role": "user",
+    "content": "네, 제 ID는 \"user-1234\"이고, 피자 항목 ID는 \"item-5678\"이에요. 수량을 2개로 줄여주세요."
+  },
+  {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [
+      {
+        "function": {
+          "name": "update_cart_item",
+          "arguments": {
+            "user_id": "user-1234",
+            "cart_item_id": "item-5678",
+            "quantity": 2
+          }
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "content": "{\"status\": \"success\", \"message\": \"장바구니의 피자 수량이 2개로 수정되었습니다.\"}"
+  },
+  {
+    "role": "assistant",
+    "content": "피자 수량을 2개로 성공적으로 수정했습니다. 다른 요청 사항이 있으신가요?"
+  },
+  {
+    "role": "user",
+    "content": "아, 그리고 피자에 페퍼로니 추가해 달라고 요청 사항도 추가하고 싶어요."
+  },
+  {
+    "role": "assistant",
+    "content": "물론이죠! 페퍼로니 추가 요청 사항을 업데이트하겠습니다. 잠시만 기다려 주세요. 고객님의 ID와 피자 항목 ID는 동일하게 사용하겠습니다.",
+    "tool_calls": [
+      {
+        "function": {
+          "name": "update_cart_item",
+          "arguments": {
+            "user_id": "user-1234",
+            "cart_item_id": "item-5678",
+            "special_request": "페퍼로니 추가"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "content": "{\"status\": \"success\", \"message\": \"페퍼로니 추가 요청이 장바구니에 반영되었습니다.\"}"
+  },
+  {
+    "role": "assistant",
+    "content": "페퍼로니 추가 요청이 장바구니에 잘 반영되었습니다. 다른 도움이 필요하시면 말씀해 주세요."
+  },
+  {
+    "role": "user",
+    "content": "감사합니다! 그럼 이대로 주문할게요."
+  },
+  {
+    "role": "assistant",
+    "content": "네, 주문 진행하시면 됩니다. 더 궁금하신 사항이 있으신가요?"
+  }
+]
