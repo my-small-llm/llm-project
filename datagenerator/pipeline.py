@@ -127,7 +127,7 @@ def run(gen_type: str, fns: list[str], n: int, output_dir: Path) -> None:
     if gen_type == "conversation":
         generator = ConversationGenerator(target_fns=fns)
         function_specs = extract_specs_text(fns)
-        tools_schema = extract_tools_schema(fns)
+        tools_schema = extract_tools_schema(ALL_FUNCTIONS)
         context = {
             "function_specs": function_specs,
             "target_functions": ", ".join(fns),
