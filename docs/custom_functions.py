@@ -86,25 +86,6 @@ class RemoveCartItemsResponse(CartSummary):
     removed_cart_item_ids: list[str]
 
 
-class CheckoutSnapshot(TypedDict):
-    user_id: str
-    address_id: str
-    delivery_note: Optional[str]
-    items: list[CartItem]
-    subtotal: int
-    delivery_fee: int
-    total: int
-
-
-class OrderStatusResponse(TypedDict):
-    order_id: str
-    user_id: str
-    status: str
-    payment_status: str
-    total: int
-    created_at: str
-
-# 1
 async def search_restaurants(
     *,
     query: Optional[str] = None,
@@ -167,7 +148,7 @@ async def search_restaurants(
         },
     }
 
-# 2
+
 async def get_restaurant_detail(
     *,
     restaurant_id: str,
@@ -208,7 +189,7 @@ async def get_restaurant_detail(
         ],
     }
 
-# 3
+
 async def upsert_address(
     *,
     user_id: str,
@@ -242,7 +223,7 @@ async def upsert_address(
     """
     return address_id or "53e17944-5ee3-4783-9a3e-2e39796d6491"
 
-# 4
+
 async def list_addresses(
     *,
     user_id: str,
@@ -271,7 +252,7 @@ async def list_addresses(
         }
     ]
 
-# 5
+
 async def get_cart(
     *,
     user_id: str,
@@ -306,7 +287,7 @@ async def get_cart(
         "subtotal": sum(item["line_total"] for item in items),
     }
 
-# 6
+
 async def add_to_cart(
     *,
     user_id: str,
@@ -347,7 +328,7 @@ async def add_to_cart(
         "subtotal": 21900 * quantity,
     }
 
-# 7
+
 async def update_cart_item(
     *,
     user_id: str,
@@ -387,7 +368,7 @@ async def update_cart_item(
         "subtotal": 21900 * final_quantity,
     }
 
-# 8
+
 async def remove_cart_items(
     *,
     user_id: str,
@@ -414,95 +395,132 @@ async def remove_cart_items(
         "subtotal": 0,
     }
 
-# 9
+
+# ── 체크아웃 / 주문 관련 타입 ──────────────────────────────
+
+
+class CheckoutSnapshot(TypedDict):
+    user_id: str
+    cart_id: str
+    restaurant_id: str
+    address_id: str
+    delivery_recipient_name: str
+    delivery_phone: str
+    delivery_line1: str
+    delivery_line2: Optional[str]
+    delivery_gate_password: Optional[str]
+    delivery_note: Optional[str]
+    items: list[CartItem]
+    subtotal: int
+    total: int
+
+
+class OrderStatusResponse(TypedDict):
+    order_id: str
+    status: str
+    payment_status: str
+    paid_at: Optional[str]
+    created_at: str
+
+
 async def prepare_checkout(
     *,
     user_id: str,
     address_id: str,
     delivery_note: Optional[str] = None,
 ) -> CheckoutSnapshot:
-    """주문 확정 전 최종 금액을 계산하고 체크아웃 스냅샷을 생성합니다.
+    """주문 생성 전 최종 금액 계산 및 스냅샷을 생성합니다.
+
+    카트와 배송지를 조회하여 subtotal·total을 계산하고,
+    이후 place_order에 넘길 CheckoutSnapshot을 반환합니다.
 
     Args:
-        user_id: 주문하는 사용자 UUID
-        address_id: 배송지 UUID
-        delivery_note: 배달 요청 사항 (None이면 없음)
+        user_id: 주문할 사용자 UUID
+        address_id: 배송에 사용할 배송지 UUID
+        delivery_note: 추가 배달 요청 사항
 
     Returns:
-        CheckoutSnapshot: 주문 확정에 필요한 스냅샷.
-            - items: 현재 장바구니 항목 목록
-            - subtotal: 메뉴 합계 금액
-            - delivery_fee: 배달비
-            - total: 최종 결제 금액 (subtotal + delivery_fee)
+        CheckoutSnapshot:
+            - user_id, cart_id, restaurant_id: 주문 주체 정보
+            - address_id, delivery_*: 배송지 스냅샷
+            - items: 카트 아이템 목록 (CartItem 리스트)
+            - subtotal: 아이템 합계
+            - total: 최종 결제 금액
     """
-    items = [
+    items: list[CartItem] = [
         {
             "cart_item_id": "1b132098-ef57-4ddb-adda-e85606bc2e66",
             "menu_item_id": "210b0ddf-b1f7-4820-8f6b-de770ffc7440",
             "menu_name": "페퍼로니 피자",
             "quantity": 1,
             "unit_price_snapshot": 21900,
-            "special_request": None,
+            "special_request": "치즈 많이",
             "line_total": 21900,
         }
     ]
-    subtotal = sum(item["line_total"] for item in items)
-    delivery_fee = 3000
+    subtotal = sum(i["line_total"] for i in items)
     return {
         "user_id": user_id,
+        "cart_id": "40cd0076-306b-41ce-9caf-fe8f5782ef4e",
+        "restaurant_id": "76a2d649-8a13-49fb-8b61-d63fbcaec5ea",
         "address_id": address_id,
+        "delivery_recipient_name": "정서준",
+        "delivery_phone": "010-3861-6707",
+        "delivery_line1": "서울시 송파구 테헤란로 355",
+        "delivery_line2": "322호",
+        "delivery_gate_password": None,
         "delivery_note": delivery_note,
         "items": items,
         "subtotal": subtotal,
-        "delivery_fee": delivery_fee,
-        "total": subtotal + delivery_fee,
+        "total": subtotal,
     }
 
-# 10
+
 async def place_order(
     *,
     snapshot: CheckoutSnapshot,
     payment_method: str,
     pg_id: Optional[str] = None,
 ) -> str:
-    """체크아웃 스냅샷을 바탕으로 주문을 확정하고 주문 ID를 반환합니다.
+    """주문을 확정하고 order_items를 생성합니다.
+
+    prepare_checkout에서 받은 스냅샷을 기반으로 orders와
+    order_items를 INSERT하고, 카트를 비운 뒤 주문 UUID를 반환합니다.
 
     Args:
         snapshot: prepare_checkout이 반환한 CheckoutSnapshot
-        payment_method: 결제 수단 (예: "card", "cash", "kakao_pay")
-        pg_id: PG사 거래 ID (None이면 비결제 또는 현장 결제)
+        payment_method: 결제 수단 (예: "card", "kakao")
+        pg_id: PG사 거래 ID (선택)
 
     Returns:
         str: 생성된 주문의 UUID
     """
-    return "067d0c41-02d6-47c3-b60f-757d2a72713a"
+    return "e4b7c689-19a2-4c3f-b9d1-7f5a38e2d104"
 
-# 11
+
 async def get_order_status(
     *,
     user_id: str,
     order_id: str,
 ) -> OrderStatusResponse:
-    """주문 상태 및 결제 상태를 조회합니다.
+    """주문 상태와 결제 상태를 조회합니다.
 
     Args:
-        user_id: 주문한 사용자 UUID
+        user_id: 주문 소유 사용자 UUID
         order_id: 조회할 주문 UUID
 
     Returns:
         OrderStatusResponse:
             - order_id: 주문 UUID
-            - user_id: 사용자 UUID
-            - status: 주문 상태 ("pending" | "accepted" | "preparing" | "delivering" | "delivered" | "cancelled")
-            - payment_status: 결제 상태 ("unpaid" | "paid" | "refunded")
-            - total: 최종 결제 금액
-            - created_at: 주문 생성 시각 (ISO 8601 문자열)
+            - status: 주문 상태 (pending / paid / preparing / delivering / delivered / cancelled)
+            - payment_status: 결제 상태 (pending / paid / failed / cancelled / refunded)
+            - paid_at: 결제 완료 시각 (ISO 8601, 미결제 시 None)
+            - created_at: 주문 생성 시각 (ISO 8601)
     """
     return {
         "order_id": order_id,
-        "user_id": user_id,
-        "status": "delivering",
-        "payment_status": "paid",
-        "total": 24900,
-        "created_at": "2026-02-15T12:00:00",
+        "status": "pending",
+        "payment_status": "pending",
+        "paid_at": None,
+        "created_at": "2026-02-14T18:55:00+09:00",
     }
