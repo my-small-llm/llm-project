@@ -2,11 +2,10 @@
 파싱된 대화를 Qwen 파인튜닝용 데이터셋으로 전처리 및 HuggingFace 업로드.
 
 사용법:
-    python -m data.preprocess [--input data/result_lst.json] [--push-to-hub REPO_NAME]
+    python -m data.preprocess [--input data/result_lst.json]
 
 출력:
-    data/dataset.parquet  (로컬 저장)
-    HuggingFace Hub      (--push-to-hub 사용 시)
+    data/dataset.jsonl    (로컬 저장)
 """
 
 import argparse
@@ -16,8 +15,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from data.config import tools
-from data.parse import parse_metadata, parse_to_qwen_format
+from datagen.config import tools
+from datagen.parse import parse_metadata, parse_to_qwen_format
 
 
 # ================================================================
@@ -97,14 +96,9 @@ def main():
         "--output",
         type=str,
         default=None,
-        help="출력 parquet 경로 (기본값: data/output/dataset.parquet)",
+        help="출력 jsonl 경로 (기본값: data/output/dataset.jsonl)",
     )
-    parser.add_argument(
-        "--push-to-hub",
-        type=str,
-        default=None,
-        help="HuggingFace Hub 리포 이름 (예: 'my-org/dataset-name')",
-    )
+
     parser.add_argument(
         "--seed",
         type=int,
@@ -120,7 +114,7 @@ def main():
         input_path = Path(args.input)
 
     if args.output is None:
-        output_path = Path(__file__).parent / "output" / "dataset.parquet"
+        output_path = Path(__file__).parent / "output" / "dataset.jsonl"
     else:
         output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,20 +172,10 @@ def main():
     print(f"[3/4] DataFrame 생성: {len(df)}행 × {len(df.columns)}열")
 
     # ── Step 4: 저장 ──
-    df.to_parquet(output_path, index=False)
+    df.to_json(output_path, orient="records", lines=True, force_ascii=False)
     print(f"[완료] 로컬 저장: {output_path} ({output_path.stat().st_size / 1024:.1f} KB)")
 
-    # HuggingFace Hub 업로드 (선택)
-    if args.push_to_hub:
-        try:
-            import datasets
-            dataset = datasets.Dataset.from_pandas(df)
-            dataset.push_to_hub(args.push_to_hub)
-            print(f"[완료] HuggingFace Hub 업로드: {args.push_to_hub}")
-        except ImportError:
-            print("[오류] `pip install datasets`를 먼저 실행하세요.")
-        except Exception as e:
-            print(f"[오류] Hub 업로드 실패: {e}")
+
 
 
 if __name__ == "__main__":
