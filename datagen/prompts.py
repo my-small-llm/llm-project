@@ -117,3 +117,38 @@ complain: {complain}
 
 10. 멀티턴 대화에서 이전에 했던 대화 내용을 계속 끌고가는 양상을 보여주십시오. 질문마다 주제를 다르게 하는 것은 지양하세요.
 """
+
+
+# ================================================================
+# 평가용(Gold Testset) 유저 프롬프트 빌더
+# ================================================================
+
+def build_gold_user_prompt(
+    tools: list,
+    tools_return_format: list,
+    uid: str,
+    chat_date: str,
+    category_name: str,
+    category_instruction: str,
+) -> str:
+    """오로지 평가용 데이터셋을 만들기 위해 강력하게 통제된 지시문을 생성합니다."""
+    return f"""
+당신은 배달 앱 AI 챗봇의 다운스트림 평가를 위한 최상의 **평가용 골드 데이터(Gold Testset)**를 생성하는 전문가입니다.
+
+1. 사용 가능한 tools 목록(function name, 설명, parameters)
+{tools}
+
+2. 각 tools 함수의 return 결과물 형식은 다음과 같습니다.
+{tools_return_format}
+
+3. 고객의 ID(UUID)는 {uid} 이고, 채팅 날짜는 {chat_date} 라고 가정합니다.
+
+4. 🎯 [정확히 생성해야 할 데이터 카테고리: {category_name}]
+
+5. 🎯 [세부 지령] 다음 지시사항만을 완벽하게 따르는 멀티턴 대화를 생성하십시오:
+{category_instruction}
+
+6. [주의사항] 위 5번 지령에 해당하는 상황이 가장 두드러지게 드러나야 합니다. 
+대화는 최대한 자연스러워야 하며, 하나의 역할(상담사/고객)이 한 번씩 번갈아가면서 발화해야 합니다.
+"""
+
