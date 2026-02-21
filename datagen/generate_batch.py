@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from data.config import (
+from datagen.config import (
     CHATBOT_DATA_URL,
     MODEL,
     QUESTION_TOPICS,
@@ -28,7 +28,7 @@ from data.config import (
     tools,
     tools_return_format,
 )
-from data.prompts import SYSTEM_PROMPT_FIXED, build_user_prompt
+from datagen.prompts import SYSTEM_PROMPT_FIXED, build_user_prompt
 
 
 # ================================================================
