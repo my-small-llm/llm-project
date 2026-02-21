@@ -40,3 +40,10 @@ outputs/logs/
 data/raw/
 data/processed/
 experiments/clone_*.py
+
+
+
+scripts/
+
+# datagen
+datagen/output
