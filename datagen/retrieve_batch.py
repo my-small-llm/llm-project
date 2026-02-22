@@ -2,10 +2,30 @@
 완료된 OpenAI Batch API 결과를 다운로드합니다.
 
 사용법:
-    python -m datagen.retrieve_batch [--batch-id <BATCH_ID>]
+    python -m datagen.retrieve_batch [--batch-id BATCH_ID] [--status-file PATH] [--output PATH]
 
 출력:
     datagen/output/result_lst.json  (생성된 대화 텍스트 목록)
+
+CLI 인수:
+    --batch-id BATCH_ID   배치 ID를 직접 지정합니다.
+                          지정하면 --status-file 은 완전히 무시됩니다.
+                          생략 시 --status-file 에서 자동으로 로드합니다.
+
+    --status-file PATH    배치 상태 파일 경로.
+                          --batch-id 가 지정된 경우에는 사용되지 않습니다.
+                          지정하지 않으면 스크립트 위치 기준으로
+                          datagen/output/batch_input_status.json 을 사용합니다.
+                          예) gold_batch_input.jsonl 제출 시
+                              --status-file datagen/output/gold_batch_input_status.json
+
+    --output PATH         결과 저장 경로.
+                          기본값: datagen/output/result_lst.json
+
+인수 우선순위:
+    --batch-id 지정  →  status 파일 없이 해당 ID로 직접 결과를 조회합니다.
+                        OpenAI 웹 콘솔 등 외부에서 배치 ID를 얻었을 때 유용합니다.
+    --batch-id 생략  →  --status-file 경로의 JSON 파일에서 batch_id 를 읽습니다.
 """
 
 import argparse
@@ -23,7 +43,13 @@ def main():
         "--batch-id",
         type=str,
         default=None,
-        help="배치 ID (생략 시 datagen/output/batch_status.json에서 로드)",
+        help="배치 ID (생략 시 --status-file에서 로드)",
+    )
+    parser.add_argument(
+        "--status-file",
+        type=str,
+        default=None,
+        help="배치 상태 파일 경로 (기본값: datagen/output/batch_input_status.json)",
     )
     parser.add_argument(
         "--output",
@@ -40,14 +66,17 @@ def main():
         output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    status_path = Path(__file__).parent / "output" / "batch_status.json"
+    if args.status_file is None:
+        status_path = Path(__file__).parent / "output" / "batch_input_status.json"
+    else:
+        status_path = Path(args.status_file)
     client = openai.OpenAI()
 
     # ── 배치 ID 확인 ──
     batch_id = args.batch_id
     if batch_id is None:
         if not status_path.exists():
-            print("[오류] batch_status.json이 없습니다.")
+            print(f"[오류] 상태 파일이 없습니다: {status_path}")
             print("[힌트] 먼저 `python -m datagen.submit_batch`를 실행하세요.")
             return
         with open(status_path, "r", encoding="utf-8") as f:
