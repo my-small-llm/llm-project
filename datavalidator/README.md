@@ -1,23 +1,23 @@
-# generated_data_validator
+# datavalidator
 
-`datagenerator`로 생성된 학습 데이터(`.txt`)의 유효성을 자동 검증하는 패키지.
+`datagen`으로 생성된 학습 데이터(`.txt`)의 유효성을 자동 검증하는 패키지.
 
 ## 실행 방법
 
 ### 기본 실행
 
 ```bash
-python -m generated_data_validator.validate --target_dir <디렉토리>
+python -m datavalidator.validate --target_dir <디렉토리>
 ```
 
 ### 예시
 
 ```bash
 # mini_samples_n55 디렉토리의 모든 .txt 파일 검증
-python -m generated_data_validator.validate --target_dir mini_samples_n55
+python -m datavalidator.validate --target_dir mini_samples_n55
 
 # 절대 경로도 가능
-python -m generated_data_validator.validate --target_dir /home/khh/workspace/llm-project/mini_samples_n55
+python -m datavalidator.validate --target_dir /home/khh/workspace/llm-project/mini_samples_n55
 ```
 
 ### 출력 예시
@@ -44,7 +44,7 @@ python -m generated_data_validator.validate --target_dir /home/khh/workspace/llm
 ## 패키지 구조
 
 ```
-generated_data_validator/
+datavalidator/
 ├── validate.py       # 진입점 — 디렉토리 순회 및 결과 출력
 ├── utils.py          # 파일 로딩, im 블록 파싱
 └── rules/
