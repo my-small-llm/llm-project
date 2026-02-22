@@ -2,10 +2,28 @@
 OpenAI Batch API용 JSONL 입력 파일 생성.
 
 사용법:
-    python -m data.generate_batch --count 400
+    python -m datagen.generate_batch [--count N] [--output PATH] [--seed N]
 
 출력:
-    data/output/batch_input.jsonl
+    datagen/output/batch_input.jsonl
+
+CLI 인수:
+    --count  INT   생성할 Batch API 요청 수.
+                   잡담 데이터(ChatbotData.csv)를 정상적으로 로드한 경우
+                   실제 생성 수는 min(count, 잡담데이터 건수)로 결정됩니다.
+                   로드에 실패하면 UNSUPPORTED_SCENARIOS를 반복하여 count건을
+                   채웁니다.
+                   기본값: 400
+
+    --output PATH  생성된 JSONL 파일의 저장 경로.
+                   지정하지 않으면 스크립트 위치 기준으로
+                   datagen/output/batch_input.jsonl 에 저장됩니다.
+                   부모 디렉터리가 없으면 자동으로 생성합니다.
+
+    --seed   INT   random 모듈의 시드값.
+                   동일한 시드를 사용하면 USER_IDS·QUESTION_TOPICS·
+                   UNSUPPORTED_SCENARIOS의 샘플링 결과가 재현됩니다.
+                   기본값: 42
 """
 
 import argparse
@@ -31,10 +49,6 @@ from datagen.config import (
 from datagen.prompts import SYSTEM_PROMPT_FIXED, build_user_prompt
 
 
-# ================================================================
-# 잡담 데이터 로드 (questions 리스트)
-# ================================================================
-
 def load_questions(url: str = CHATBOT_DATA_URL) -> list[str]:
     """잡담 CSV 데이터를 다운로드하여 question 목록을 반환합니다."""
     try:
@@ -47,10 +61,6 @@ def load_questions(url: str = CHATBOT_DATA_URL) -> list[str]:
         print("[WARN] unsupported_scenarios만 사용합니다.")
         return []
 
-
-# ================================================================
-# 단일 요청 생성
-# ================================================================
 
 def make_request_body(question: str, request_idx: int) -> dict:
     """
@@ -85,10 +95,7 @@ def make_request_body(question: str, request_idx: int) -> dict:
     )
 
     # instructions: 고정 시스템 프롬프트 (prompt caching 대상)
-    instructions = (
-        "당신은 배달 앱 AI 상담사를 위해 멀티턴 챗봇 파인튜닝용 데이터를 생성하는 전문가입니다.\n\n"
-        + SYSTEM_PROMPT_FIXED
-    )
+    instructions = SYSTEM_PROMPT_FIXED
 
     return {
         "custom_id": f"req-{request_idx}",
@@ -102,11 +109,7 @@ def make_request_body(question: str, request_idx: int) -> dict:
     }
 
 
-# ================================================================
-# 메인: JSONL 파일 생성
-# ================================================================
-
-def main():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Batch API용 JSONL 입력 파일을 생성합니다."
     )
@@ -120,7 +123,7 @@ def main():
         "--output",
         type=str,
         default=None,
-        help="출력 파일 경로 (기본값: data/output/batch_input.jsonl)",
+        help="출력 파일 경로 (기본값: datagen/output/batch_input.jsonl)",
     )
     parser.add_argument(
         "--seed",
@@ -128,7 +131,11 @@ def main():
         default=42,
         help="랜덤 시드 (재현성, 기본값: 42)",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
 
     # 출력 경로 설정
     if args.output is None:
