@@ -13,17 +13,17 @@ python -m datavalidator.validate --target_dir <디렉토리>
 ### 예시
 
 ```bash
-# mini_samples_n55 디렉토리의 모든 .txt 파일 검증
-python -m datavalidator.validate --target_dir mini_samples_n55
+# synthetic_data/samples 디렉토리의 모든 .txt 파일 검증
+python -m datavalidator.validate --target_dir synthetic_data/samples
 
 # 절대 경로도 가능
-python -m datavalidator.validate --target_dir /home/khh/workspace/llm-project/mini_samples_n55
+python -m datavalidator.validate --target_dir /home/khh/workspace/llm-project/synthetic_data/samples
 ```
 
 ### 출력 예시
 
 ```
-검증 시작: /home/khh/workspace/llm-project/mini_samples_n55
+검증 시작: /home/khh/workspace/llm-project/synthetic_data/samples
 
   [PASS] sample_0002.txt
   [FAIL] sample_0001.txt  (2건)
