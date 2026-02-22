@@ -16,12 +16,19 @@ export OPENAI_API_KEY="sk-..."
 
 ## 학습용 데이터 생성 파이프라인
 
-파인튜닝에 사용할 대량의 멀티턴 대화 데이터를 생성하고 HuggingFace Hub에 업로드하는 5단계 파이프라인입니다.
+파인튜닝에 사용할 대량의 멀티턴 대화 데이터를 생성하고 HuggingFace Hub에 업로드하는 파이프라인입니다.
 
 ```
-[Step 1]               [Step 2]         [Step 3]            [Step 4]        [Step 5]
-generate_batch.py  →  submit_batch.py  →  retrieve_batch.py  →  preprocess.py  →  push_to_hub.py
+generate_batch → submit_batch → retrieve_batch → preprocess → render_txt → push_to_hub
 ```
+
+### 한 번에 실행 (Step 1~5)
+
+```bash
+bash datagen/run_generate.sh
+```
+
+`run_generate.sh`는 Step 1~5를 순서대로 실행합니다. `submit_batch`의 폴링 대기가 포함되어 있으므로 배치가 완료될 때까지 자동으로 기다립니다. 파라미터는 스크립트 상단 변수(`COUNT`, `SEED`, `POLL_INTERVAL`)를 직접 수정합니다.
 
 ### Step 1. JSONL 입력 파일 생성 (`generate_batch.py`)
 
@@ -36,14 +43,14 @@ python -m datagen.generate_batch --count 400
 
 ### Step 2. Batch API 제출 (`submit_batch.py`)
 
-Step 1에서 만든 JSONL 파일을 OpenAI Batch API에 제출합니다. 비용을 크게 절감할 수 있으며, 진행 상태는 `batch_status.json`으로 추적합니다.
+Step 1에서 만든 JSONL 파일을 OpenAI Batch API에 제출합니다.
 
 ```bash
-# 제출과 동시에 완료될 때까지 대기
+# 제출 후 완료될 때까지 폴링 대기
 python -m datagen.submit_batch --wait
 ```
 
-- 출력: `datagen/output/batch_status.json`
+- 출력: `datagen/output/batch_input_status.json`
 
 ### Step 3. 결과 다운로드 (`retrieve_batch.py`)
 
@@ -55,7 +62,7 @@ python -m datagen.retrieve_batch
 
 - 출력: `datagen/output/result_lst.json`
 
-### Step 4. 파싱 및 전처리 (`preprocess.py` & `parse.py`)
+### Step 4. 파싱 및 전처리 (`preprocess.py`)
 
 다운로드된 텍스트를 파싱하여 Qwen 계열 모델이 필요로 하는 `<tool_call>` 등 XML 태그 형식으로 변환합니다. 시스템 지시문(`system_prompt`)과 대화 내역(`messages`)을 분리하여 JSON Lines 형식으로 저장합니다.
 
@@ -84,9 +91,20 @@ python -m datagen.preprocess
 }
 ```
 
-### Step 5. HuggingFace Hub 업로드 (`push_to_hub.py`)
+### Step 5. 샘플 텍스트 내보내기 (`render_txt.py`)
 
-전처리가 완료된 `dataset.jsonl`을 HuggingFace Hub에 업로드합니다. `dataset.jsonl`의 컬럼 구조 그대로 업로드되며, 파인튜닝 라이브러리(unsloth, trl 등)에서 `dataset["system_prompt"]`와 `dataset["messages"]`를 직접 매핑하여 활용합니다.
+`dataset.jsonl`의 각 레코드를 Qwen chat template 형식의 `.txt` 파일로 변환하여 저장합니다. 데이터를 육안으로 확인하거나 디버깅할 때 활용합니다.
+
+```bash
+python -m datagen.render_txt
+# --input 생략 시 datagen/output/dataset.jsonl 자동 사용
+```
+
+- 출력: `datagen/output/samples/sample_0001.txt`, `sample_0002.txt`, ...
+
+### Step 6. HuggingFace Hub 업로드 (`push_to_hub.py`)
+
+전처리가 완료된 `dataset.jsonl`을 HuggingFace Hub에 업로드합니다.
 
 ```bash
 python -m datagen.push_to_hub --input datagen/output/dataset.jsonl --repo-id "your-hf-account/delivery-dataset"
@@ -96,11 +114,10 @@ python -m datagen.push_to_hub --input datagen/output/dataset.jsonl --repo-id "yo
 
 ## 평가용 골드 데이터 생성 파이프라인
 
-파인튜닝된 모델의 성능을 벤치마킹하기 위한 별도 파이프라인입니다. 카테고리별로 철저하게 통제된 시나리오를 생성합니다.
+파인튜닝된 모델의 성능을 벤치마킹하기 위한 별도 파이프라인입니다.
 
 ```
-[Step 1]                    [Step 2]         [Step 3]
-generate_gold_batch.py  →  submit_batch.py  →  retrieve_batch.py
+generate_gold_batch → submit_batch → retrieve_batch
 ```
 
 ### Step 1. 평가용 골드 배치 생성 (`generate_gold_batch.py`)
@@ -126,23 +143,19 @@ python -m datagen.generate_gold_batch
 
 ### Step 2. Batch API 제출 (`submit_batch.py`)
 
-학습용 파이프라인과 동일한 스크립트를 사용하되, `--input`으로 골드 배치 파일을 지정합니다.
-
 ```bash
-python -m datagen.submit_batch --input datagen/output/gold_batch_input.jsonl --wait
+python -m datagen.submit_batch \
+    --input datagen/output/gold_batch_input.jsonl \
+    --output datagen/output/gold_batch_input_status.json \
+    --wait
 ```
-
-- 출력: `datagen/output/batch_status.json`
 
 ### Step 3. 결과 다운로드 (`retrieve_batch.py`)
 
-학습용 파이프라인과 동일한 스크립트로 결과를 다운로드합니다.
-
 ```bash
-python -m datagen.retrieve_batch
+python -m datagen.retrieve_batch \
+    --status-file datagen/output/gold_batch_input_status.json
 ```
-
-- 출력: `datagen/output/result_lst.json`
 
 ---
 
@@ -166,15 +179,18 @@ datagen/
 ├── generate_gold_batch.py       # 평가용 Step 1: 골드 데이터(80건) JSONL 생성
 ├── submit_batch.py              # Step 2: 배치 제출 (학습·평가 공용)
 ├── retrieve_batch.py            # Step 3: 결과 다운로드 (학습·평가 공용)
-├── parse.py                     # 파싱 도구
 ├── preprocess.py                # 학습용 Step 4: 파싱 및 jsonl 추출
-├── push_to_hub.py               # 학습용 Step 5: 데이터셋 허브 업로드
+├── render_txt.py                # 학습용 Step 5: dataset.jsonl → 개별 .txt 파일
+├── push_to_hub.py               # 학습용 Step 6: 데이터셋 허브 업로드
+├── run_generate.sh              # Step 1~5 일괄 실행 스크립트
 ├── README.md                    # 이 문서
 │
-└── output/                      # 단계별 출력 파일
+└── output/                      # 단계별 출력 파일 (git-ignored)
     ├── batch_input.jsonl        # 학습용 Batch API 입력 파일
+    ├── batch_input_status.json  # 학습용 배치 상태 정보
     ├── gold_batch_input.jsonl   # 평가용 Batch API 입력 파일
-    ├── batch_status.json        # 배치 상태 정보
+    ├── gold_batch_input_status.json  # 평가용 배치 상태 정보
     ├── result_lst.json          # 결과 다운로드 원본 리스트
-    └── dataset.jsonl            # 전처리 완료 데이터셋
+    ├── dataset.jsonl            # 전처리 완료 데이터셋
+    └── samples/                 # render_txt.py 출력 디렉터리
 ```
