@@ -13,7 +13,7 @@ DATASET_FILE="${OUTPUT_DIR}/dataset.jsonl"
 SAMPLES_DIR="${OUTPUT_DIR}/samples"
 
 # 파라미터
-COUNT=10
+COUNT=4
 SEED=42
 POLL_INTERVAL=60
 
