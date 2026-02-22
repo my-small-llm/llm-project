@@ -2,10 +2,10 @@
 OpenAI Batch API용 JSONL 입력 파일 생성.
 
 사용법:
-    python -m data.generate_batch --count 400
+    python -m datagen.generate_batch --count 400
 
 출력:
-    data/output/batch_input.jsonl
+    datagen/output/batch_input.jsonl
 """
 
 import argparse
@@ -120,7 +120,7 @@ def main():
         "--output",
         type=str,
         default=None,
-        help="출력 파일 경로 (기본값: data/output/batch_input.jsonl)",
+        help="출력 파일 경로 (기본값: datagen/output/batch_input.jsonl)",
     )
     parser.add_argument(
         "--seed",

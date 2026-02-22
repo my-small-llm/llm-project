@@ -2,10 +2,10 @@
 OpenAI Batch API 배치 제출 및 상태 확인.
 
 사용법:
-    python -m data.submit_batch [--input data/batch_input.jsonl]
+    python -m datagen.submit_batch [--input datagen/output/batch_input.jsonl]
 
 출력:
-    data/batch_status.json  (배치 ID 및 상태 저장)
+    datagen/output/batch_status.json  (배치 ID 및 상태 저장)
 """
 
 import argparse
@@ -24,7 +24,7 @@ def main():
         "--input",
         type=str,
         default=None,
-        help="업로드할 JSONL 파일 경로 (기본값: data/output/batch_input.jsonl)",
+        help="업로드할 JSONL 파일 경로 (기본값: datagen/output/batch_input.jsonl)",
     )
     parser.add_argument(
         "--wait",
@@ -47,7 +47,7 @@ def main():
 
     if not input_path.exists():
         print(f"[오류] 입력 파일이 없습니다: {input_path}")
-        print("[힌트] 먼저 `python -m data.generate_batch`를 실행하세요.")
+        print("[힌트] 먼저 `python -m datagen.generate_batch`를 실행하세요.")
         return
 
     status_path = Path(__file__).parent / "output" / "batch_status.json"
@@ -107,15 +107,15 @@ def main():
         if batch.status == "completed":
             print(f"[완료] 배치가 성공적으로 완료되었습니다.")
             print(f"  → 결과 파일 ID: {batch.output_file_id}")
-            print(f"  → 다음 단계: `python -m data.retrieve_batch`")
+            print(f"  → 다음 단계: `python -m datagen.retrieve_batch`")
         else:
             print(f"[실패] 배치 상태: {batch.status}")
             if batch.error_file_id:
                 print(f"  → 에러 파일 ID: {batch.error_file_id}")
     else:
         print("[완료] 배치가 제출되었습니다.")
-        print(f"  → 상태 확인: `python -m data.submit_batch` (--wait 옵션)")
-        print(f"  → 결과 다운로드: `python -m data.retrieve_batch`")
+        print(f"  → 상태 확인: `python -m datagen.submit_batch` (--wait 옵션)")
+        print(f"  → 결과 다운로드: `python -m datagen.retrieve_batch`")
 
 
 if __name__ == "__main__":

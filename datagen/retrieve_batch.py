@@ -2,10 +2,10 @@
 완료된 OpenAI Batch API 결과를 다운로드합니다.
 
 사용법:
-    python -m data.retrieve_batch [--batch-id <BATCH_ID>]
+    python -m datagen.retrieve_batch [--batch-id <BATCH_ID>]
 
 출력:
-    data/output/result_lst.json  (생성된 대화 텍스트 목록)
+    datagen/output/result_lst.json  (생성된 대화 텍스트 목록)
 """
 
 import argparse
@@ -23,13 +23,13 @@ def main():
         "--batch-id",
         type=str,
         default=None,
-        help="배치 ID (생략 시 data/batch_status.json에서 로드)",
+        help="배치 ID (생략 시 datagen/output/batch_status.json에서 로드)",
     )
     parser.add_argument(
         "--output",
         type=str,
         default=None,
-        help="결과 저장 경로 (기본값: data/output/result_lst.json)",
+        help="결과 저장 경로 (기본값: datagen/output/result_lst.json)",
     )
     args = parser.parse_args()
 
@@ -48,7 +48,7 @@ def main():
     if batch_id is None:
         if not status_path.exists():
             print("[오류] batch_status.json이 없습니다.")
-            print("[힌트] 먼저 `python -m data.submit_batch`를 실행하세요.")
+            print("[힌트] 먼저 `python -m datagen.submit_batch`를 실행하세요.")
             return
         with open(status_path, "r", encoding="utf-8") as f:
             status_info = json.load(f)
@@ -63,7 +63,7 @@ def main():
 
     if batch.status != "completed":
         print(f"[대기] 배치가 아직 완료되지 않았습니다 (현재: {batch.status})")
-        print("[힌트] `python -m data.submit_batch --wait`로 대기하거나 나중에 다시 실행하세요.")
+        print("[힌트] `python -m datagen.submit_batch --wait`로 대기하거나 나중에 다시 실행하세요.")
         return
 
     # ── 결과 다운로드 ──

@@ -2,10 +2,10 @@
 파싱된 대화를 Qwen 파인튜닝용 데이터셋으로 전처리 및 HuggingFace 업로드.
 
 사용법:
-    python -m data.preprocess [--input data/result_lst.json]
+    python -m datagen.preprocess [--input datagen/output/result_lst.json]
 
 출력:
-    data/dataset.jsonl    (로컬 저장)
+    datagen/output/dataset.jsonl    (로컬 저장)
 """
 
 import argparse
@@ -90,13 +90,13 @@ def main():
         "--input",
         type=str,
         default=None,
-        help="결과 JSON 경로 (기본값: data/output/result_lst.json)",
+        help="결과 JSON 경로 (기본값: datagen/output/result_lst.json)",
     )
     parser.add_argument(
         "--output",
         type=str,
         default=None,
-        help="출력 jsonl 경로 (기본값: data/output/dataset.jsonl)",
+        help="출력 jsonl 경로 (기본값: datagen/output/dataset.jsonl)",
     )
 
     parser.add_argument(
@@ -124,7 +124,7 @@ def main():
     # ── Step 1: 결과 로드 ──
     if not input_path.exists():
         print(f"[오류] 입력 파일이 없습니다: {input_path}")
-        print("[힌트] 먼저 `python -m data.retrieve_batch`를 실행하세요.")
+        print("[힌트] 먼저 `python -m datagen.retrieve_batch`를 실행하세요.")
         return
 
     with open(input_path, "r", encoding="utf-8") as f:

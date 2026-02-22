@@ -35,7 +35,7 @@ generate_gold_batch.py (평가용 80건) →  submit_batch.py  →  retrieve_bat
 
 ### Step 1. JSONL 입력 파일 생성 (`generate_batch.py`)
 
-지정된 개수만큼의 대화 요청 시나리오를 생성하여, OpenAI Batch API가 이해할 수 있는 JSONL 형태로 파일(`data/output/batch_input.jsonl`)을 생성합니다.
+지정된 개수만큼의 대화 요청 시나리오를 생성하여, OpenAI Batch API가 이해할 수 있는 JSONL 형태로 파일(`datagen/output/batch_input.jsonl`)을 생성합니다.
 
 ```bash
 python -m datagen.generate_batch --count 400
@@ -49,7 +49,7 @@ python -m datagen.generate_batch --count 400
 ```bash
 python -m datagen.generate_gold_batch
 ```
-- 실행 시 `data/output/gold_batch_input.jsonl` 경로에 파일이 생성됩니다.
+- 실행 시 `datagen/output/gold_batch_input.jsonl` 경로에 파일이 생성됩니다.
 - 이후 스텝에서 `--input` 파라미터로 이 파일을 지정하여 API 제출을 진행할 수 있습니다.
 
 ---
@@ -67,7 +67,7 @@ python -m datagen.submit_batch --wait
 
 ### Step 3. 결과 다운로드 (`retrieve_batch.py`)
 
-OpenAI 서버에서 배치 처리가 완료되면 이 스크립트를 사용하여 결과 대화 데이터를 리스트 형태의 JSON 파일(`data/output/result_lst.json`)로 다운로드합니다. 
+OpenAI 서버에서 배치 처리가 완료되면 이 스크립트를 사용하여 결과 대화 데이터를 리스트 형태의 JSON 파일(`datagen/output/result_lst.json`)로 다운로드합니다. 
 
 ```bash
 python -m datagen.retrieve_batch
@@ -123,7 +123,7 @@ python -m datagen.preprocess
 `preprocess.py`가 만든(그리고 데이터 검증을 정상적으로 통과한) `dataset.jsonl` 파일을 읽어들여 HuggingFace Hub에 최종 파인튜닝용으로 업로드합니다.
 
 ```bash
-python -m datagen.push_to_hub --input data/output/dataset.jsonl --repo-id "your-hf-account/delivery-dataset"
+python -m datagen.push_to_hub --input datagen/output/dataset.jsonl --repo-id "your-hf-account/delivery-dataset"
 ```
 
 **업로드 전 최종 변환되는 HF Dataset의 구조**:

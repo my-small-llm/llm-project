@@ -6,7 +6,7 @@ Batch API 결과 텍스트를 Qwen 파인튜닝용 messages 형식으로 파싱.
     - parse_to_qwen_format(text) → list[dict]  (role/content 메시지 리스트)
 
 사용법:
-    from data.parse import parse_metadata, parse_to_qwen_format
+    from datagen.parse import parse_metadata, parse_to_qwen_format
 """
 
 import ast
