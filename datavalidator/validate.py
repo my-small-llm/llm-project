@@ -1,18 +1,18 @@
-"""python -m generated_data_validator.validate 진입점"""
+"""python -m datavalidator.validate 진입점"""
 from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from generated_data_validator.rules.format import check_im_pairing, FormatError
-from generated_data_validator.rules.schema import (
+from datavalidator.rules.format import check_im_pairing, FormatError
+from datavalidator.rules.schema import (
     check_tool_call,
     check_tool_response,
     extract_called_func_name,
     SchemaError,
 )
-from generated_data_validator.utils import load_text, parse_blocks
+from datavalidator.utils import load_text, parse_blocks
 
 
 @dataclass
