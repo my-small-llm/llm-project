@@ -19,7 +19,7 @@ async def search_restaurants(
     category: Optional[str] = None,    # restaurants.category 문자열 필터
     min_rating: Optional[float] = None,# 최소 평점 (restaurants.rating_avg)
     only_open: bool = False,           # 현재 영업 중인 식당만 필터
-    sort: str = "relevance",           # 정렬 기준 (relevance, rating_desc, etc...)
+    sort: str = "relevance",           # 정렬 기준 ('relevance' | 'rating' | 'delivery_fee')
     page: int = 1,
     page_size: int = 20,
 ) -> dict  # Page 구조 반환
@@ -34,7 +34,7 @@ await search_restaurants(
     category="치킨",
     min_rating=4.5,
     only_open=False,
-    sort="rating_desc",
+    sort="rating",
     page=1,
     page_size=20,
 )
