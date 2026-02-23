@@ -66,6 +66,7 @@ def _unwrap_optional(hint):
 
 def _type_matches(value: Any, hint) -> bool:
     """value가 hint 타입과 호환되는지 확인 (shallow + origin 기준)."""
+    import datetime
     import typing
 
     origin = get_origin(hint)
@@ -87,6 +88,9 @@ def _type_matches(value: Any, hint) -> bool:
         # int와 float 호환 허용 (JSON 숫자)
         if hint is float:
             return isinstance(value, (int, float))
+        # datetime 계열은 JSON에서 str로 직렬화되므로 str도 허용
+        if issubclass(hint, datetime.datetime):
+            return isinstance(value, (str, datetime.datetime))
         return isinstance(value, hint)
 
     return True  # 판별 불가 시 통과

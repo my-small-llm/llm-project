@@ -1,3 +1,5 @@
+# 이 파일은 docs/functioncalling_sections.py의 스키마(반환 필드명, 구조)를 기준으로
+# 작성된 목업(mock) 구현체입니다. 실제 DB 대신 하드코딩된 더미 데이터를 반환합니다.
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,7 +12,7 @@ class RestaurantSummary(TypedDict):
     category: str
     rating_avg: float
     is_open: bool
-    min_delivery_fee: int
+    min_order_amount: int
 
 
 class Pagination(TypedDict):
@@ -59,8 +61,6 @@ class Address(TypedDict):
     line1: str
     line2: Optional[str]
     is_default: bool
-    gate_password: Optional[str]
-    delivery_note: Optional[str]
 
 
 class CartItem(TypedDict):
@@ -86,6 +86,29 @@ class RemoveCartItemsResponse(CartSummary):
     removed_cart_item_ids: list[str]
 
 
+class CheckoutSnapshot(TypedDict):
+    user_id: str
+    cart_id: str
+    restaurant_id: str
+    address_id: str
+    delivery_recipient_name: str
+    delivery_phone: str
+    delivery_line1: str
+    delivery_line2: Optional[str]
+    delivery_note: Optional[str]
+    items: list[CartItem]
+    subtotal: int
+    total: int
+
+
+class OrderStatusResponse(TypedDict):
+    order_id: str
+    status: str
+    payment_status: str
+    paid_at: Optional[str]
+    created_at: str
+
+
 async def search_restaurants(
     *,
     query: Optional[str] = None,
@@ -96,11 +119,11 @@ async def search_restaurants(
     page: int = 1,
     page_size: int = 20,
 ) -> SearchRestaurantsResponse:
-    """음식점을 검색하고 페이지네이션된 결과를 반환합니다.
+    """음식점을 검색/필터/정렬하여 페이지 단위로 반환합니다.
 
     Args:
-        query: 음식점 이름 또는 메뉴 키워드 (없으면 전체 검색)
-        category: 음식 카테고리 필터 (예: "피자", "치킨")
+        query: 음식점 이름 또는 메뉴 키워드
+        category: 음식 카테고리 필터 (예: "피자", "한식")
         min_rating: 최소 평점 필터 (0.0 ~ 5.0)
         only_open: True이면 현재 영업 중인 음식점만 반환
         sort: 정렬 기준 ("relevance" | "rating" | "delivery_fee")
@@ -108,10 +131,9 @@ async def search_restaurants(
         page_size: 페이지당 항목 수
 
     Returns:
-        SearchRestaurantsResponse:
-            - items: 음식점 요약 목록 (RestaurantSummary 리스트)
-            - pagination: 현재 페이지·전체 항목 수 등 페이지 정보
-            - applied_filters: 실제로 적용된 검색 필터 조건
+        items: 음식점 요약 목록 (restaurant_id, name, category, rating_avg, is_open, min_order_amount)
+        pagination: 페이지 정보 (page, page_size, total_items, total_pages)
+        applied_filters: 실제 적용된 필터 조건
     """
     items = [
         {
@@ -120,7 +142,7 @@ async def search_restaurants(
             "category": "피자",
             "rating_avg": 4.7,
             "is_open": True,
-            "min_delivery_fee": 3000,
+            "min_order_amount": 15000,
         },
         {
             "restaurant_id": "f0e692f8-381d-46ff-b3b1-1cef9674ab55",
@@ -128,7 +150,7 @@ async def search_restaurants(
             "category": "피자",
             "rating_avg": 4.5,
             "is_open": False,
-            "min_delivery_fee": 2500,
+            "min_order_amount": 12000,
         },
     ]
     return {
@@ -154,17 +176,16 @@ async def get_restaurant_detail(
     restaurant_id: str,
     at: Optional[datetime] = None,
 ) -> RestaurantDetailResponse:
-    """특정 음식점의 상세 정보와 메뉴 목록을 반환합니다.
+    """특정 음식점의 기본 정보와 메뉴 목록을 반환합니다.
 
     Args:
-        restaurant_id: 조회할 음식점의 UUID
-        at: 영업 여부를 확인할 기준 시각 (None이면 현재 시각 사용)
+        restaurant_id: 조회할 음식점 UUID
+        at: 영업 여부 판단 기준 시각 (None이면 현재 시각)
 
     Returns:
-        RestaurantDetailResponse:
-            - restaurant_id, name, category, rating_avg, is_open: 음식점 기본 정보
-            - checked_at: 영업 여부를 확인한 시각 (ISO 8601 문자열)
-            - menus: 메뉴 항목 목록 (MenuItem 리스트 — id, 이름, 가격, 판매 가능 여부)
+        restaurant_id, name, category, rating_avg, is_open: 음식점 기본 정보
+        checked_at: 영업 여부 확인 시각 (ISO 8601)
+        menus: 메뉴 목록 (menu_item_id, name, price, is_available)
     """
     return {
         "restaurant_id": restaurant_id,
@@ -202,13 +223,10 @@ async def upsert_address(
     gate_password: Optional[str] = None,
     delivery_note: Optional[str] = None,
 ) -> str:
-    """배송지를 생성하거나 수정합니다.
-
-    address_id를 전달하면 기존 배송지를 수정하고,
-    생략하면 새 배송지를 생성합니다.
+    """배송지를 신규 생성하거나 기존 배송지를 수정합니다.
 
     Args:
-        user_id: 배송지를 소유한 사용자 UUID
+        user_id: 배송지 소유 사용자 UUID
         address_id: 수정할 배송지 UUID (None이면 신규 생성)
         recipient_name: 수령인 이름
         phone: 수령인 연락처
@@ -219,7 +237,7 @@ async def upsert_address(
         delivery_note: 배달 요청 사항
 
     Returns:
-        str: 생성 또는 수정된 배송지의 UUID
+        생성 또는 수정된 배송지 UUID
     """
     return address_id or "53e17944-5ee3-4783-9a3e-2e39796d6491"
 
@@ -231,12 +249,10 @@ async def list_addresses(
     """사용자의 저장된 배송지 목록을 반환합니다.
 
     Args:
-        user_id: 배송지를 조회할 사용자 UUID
+        user_id: 조회할 사용자 UUID
 
     Returns:
-        list[Address]: 배송지 목록.
-            각 항목은 address_id, 수령인 정보(name, phone), 주소(line1, line2),
-            기본 배송지 여부(is_default), 공동현관 비밀번호, 배달 요청 사항을 포함합니다.
+        배송지 목록 (address_id, user_id, recipient_name, phone, line1, line2, is_default)
     """
     return [
         {
@@ -247,8 +263,6 @@ async def list_addresses(
             "line1": "서울시 송파구 테헤란로 355",
             "line2": "322호",
             "is_default": True,
-            "gate_password": None,
-            "delivery_note": "문 앞에 두고 문자 주세요",
         }
     ]
 
@@ -260,12 +274,11 @@ async def get_cart(
     """사용자의 현재 장바구니를 반환합니다.
 
     Args:
-        user_id: 장바구니를 조회할 사용자 UUID
+        user_id: 조회할 사용자 UUID
 
     Returns:
-        CartSummary: 장바구니 정보 (cart_id, restaurant_id, 담긴 항목 목록,
-            총 항목 수, 소계 금액).
-        None: 장바구니가 비어 있거나 존재하지 않는 경우.
+        cart_id, user_id, restaurant_id, items, item_count, subtotal.
+        장바구니가 없으면 None.
     """
     items = [
         {
@@ -298,16 +311,17 @@ async def add_to_cart(
 ) -> CartSummary:
     """장바구니에 메뉴 항목을 추가하고 갱신된 장바구니를 반환합니다.
 
+    1카트=1식당 제약이 있으며, 다른 식당 메뉴 추가 시 기존 카트가 교체됩니다.
+
     Args:
         user_id: 장바구니 소유 사용자 UUID
         restaurant_id: 메뉴가 속한 음식점 UUID
         menu_item_id: 추가할 메뉴 항목 UUID
         quantity: 추가 수량 (1 이상)
-        special_request: 해당 항목에 대한 요청 사항 (예: "소스 추가")
+        special_request: 항목별 요청 사항
 
     Returns:
-        CartSummary: 항목 추가 후 장바구니 전체 상태.
-            items에는 방금 추가된 항목을 포함한 모든 CartItem이 담깁니다.
+        추가 후 장바구니 전체 상태 (CartSummary)
     """
     return {
         "cart_id": "40cd0076-306b-41ce-9caf-fe8f5782ef4e",
@@ -345,10 +359,9 @@ async def update_cart_item(
         special_request: 변경할 요청 사항 (None이면 기존 값 유지)
 
     Returns:
-        CartSummary: 항목 수정 후 장바구니 전체 상태.
+        수정 후 장바구니 전체 상태 (CartSummary)
     """
     final_quantity = quantity if quantity is not None else 1
-    final_request = special_request
     return {
         "cart_id": "40cd0076-306b-41ce-9caf-fe8f5782ef4e",
         "user_id": user_id,
@@ -360,7 +373,7 @@ async def update_cart_item(
                 "menu_name": "페퍼로니 피자",
                 "quantity": final_quantity,
                 "unit_price_snapshot": 21900,
-                "special_request": final_request,
+                "special_request": special_request,
                 "line_total": 21900 * final_quantity,
             }
         ],
@@ -374,16 +387,14 @@ async def remove_cart_items(
     user_id: str,
     cart_item_ids: list[str],
 ) -> RemoveCartItemsResponse:
-    """장바구니에서 여러 항목을 한 번에 삭제합니다.
+    """장바구니에서 지정한 항목들을 삭제합니다.
 
     Args:
         user_id: 장바구니 소유 사용자 UUID
         cart_item_ids: 삭제할 장바구니 항목 UUID 목록
 
     Returns:
-        RemoveCartItemsResponse: CartSummary에 removed_cart_item_ids 필드가 추가된 구조.
-            - removed_cart_item_ids: 실제로 삭제된 항목 UUID 목록
-            - 나머지 필드(items, item_count, subtotal 등)는 삭제 후 장바구니 상태를 반영
+        삭제 후 장바구니 상태 + removed_cart_item_ids (실제 삭제된 항목 UUID 목록)
     """
     return {
         "cart_id": "40cd0076-306b-41ce-9caf-fe8f5782ef4e",
@@ -396,43 +407,16 @@ async def remove_cart_items(
     }
 
 
-# ── 체크아웃 / 주문 관련 타입 ──────────────────────────────
-
-
-class CheckoutSnapshot(TypedDict):
-    user_id: str
-    cart_id: str
-    restaurant_id: str
-    address_id: str
-    delivery_recipient_name: str
-    delivery_phone: str
-    delivery_line1: str
-    delivery_line2: Optional[str]
-    delivery_gate_password: Optional[str]
-    delivery_note: Optional[str]
-    items: list[CartItem]
-    subtotal: int
-    total: int
-
-
-class OrderStatusResponse(TypedDict):
-    order_id: str
-    status: str
-    payment_status: str
-    paid_at: Optional[str]
-    created_at: str
-
-
 async def prepare_checkout(
     *,
     user_id: str,
     address_id: str,
     delivery_note: Optional[str] = None,
 ) -> CheckoutSnapshot:
-    """주문 생성 전 최종 금액 계산 및 스냅샷을 생성합니다.
+    """주문 생성 전 최종 금액을 계산하고 스냅샷을 생성합니다.
 
     카트와 배송지를 조회하여 subtotal·total을 계산하고,
-    이후 place_order에 넘길 CheckoutSnapshot을 반환합니다.
+    place_order에 전달할 CheckoutSnapshot을 반환합니다.
 
     Args:
         user_id: 주문할 사용자 UUID
@@ -440,12 +424,10 @@ async def prepare_checkout(
         delivery_note: 추가 배달 요청 사항
 
     Returns:
-        CheckoutSnapshot:
-            - user_id, cart_id, restaurant_id: 주문 주체 정보
-            - address_id, delivery_*: 배송지 스냅샷
-            - items: 카트 아이템 목록 (CartItem 리스트)
-            - subtotal: 아이템 합계
-            - total: 최종 결제 금액
+        user_id, cart_id, restaurant_id, address_id: 주문 주체 정보
+        delivery_recipient_name, delivery_phone, delivery_line1, delivery_line2, delivery_note: 배송지 스냅샷
+        items: 카트 아이템 목록 (CartItem)
+        subtotal, total: 금액 정보
     """
     items: list[CartItem] = [
         {
@@ -468,7 +450,6 @@ async def prepare_checkout(
         "delivery_phone": "010-3861-6707",
         "delivery_line1": "서울시 송파구 테헤란로 355",
         "delivery_line2": "322호",
-        "delivery_gate_password": None,
         "delivery_note": delivery_note,
         "items": items,
         "subtotal": subtotal,
@@ -482,10 +463,9 @@ async def place_order(
     payment_method: str,
     pg_id: Optional[str] = None,
 ) -> str:
-    """주문을 확정하고 order_items를 생성합니다.
+    """주문을 확정하고 생성된 주문 UUID를 반환합니다.
 
-    prepare_checkout에서 받은 스냅샷을 기반으로 orders와
-    order_items를 INSERT하고, 카트를 비운 뒤 주문 UUID를 반환합니다.
+    prepare_checkout의 스냅샷을 기반으로 주문을 생성하고 카트를 비웁니다.
 
     Args:
         snapshot: prepare_checkout이 반환한 CheckoutSnapshot
@@ -493,7 +473,7 @@ async def place_order(
         pg_id: PG사 거래 ID (선택)
 
     Returns:
-        str: 생성된 주문의 UUID
+        생성된 주문 UUID
     """
     return "e4b7c689-19a2-4c3f-b9d1-7f5a38e2d104"
 
@@ -510,12 +490,9 @@ async def get_order_status(
         order_id: 조회할 주문 UUID
 
     Returns:
-        OrderStatusResponse:
-            - order_id: 주문 UUID
-            - status: 주문 상태 (pending / paid / preparing / delivering / delivered / cancelled)
-            - payment_status: 결제 상태 (pending / paid / failed / cancelled / refunded)
-            - paid_at: 결제 완료 시각 (ISO 8601, 미결제 시 None)
-            - created_at: 주문 생성 시각 (ISO 8601)
+        order_id, status, payment_status, paid_at, created_at.
+        status: pending | paid | preparing | delivering | delivered | cancelled
+        payment_status: pending | paid | failed | cancelled | refunded
     """
     return {
         "order_id": order_id,

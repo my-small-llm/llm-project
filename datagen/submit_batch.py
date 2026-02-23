@@ -2,10 +2,27 @@
 OpenAI Batch API 배치 제출 및 상태 확인.
 
 사용법:
-    python -m datagen.submit_batch [--input datagen/output/batch_input.jsonl]
+    python -m datagen.submit_batch [--input PATH] [--output PATH] [--wait] [--poll-interval N]
 
 출력:
-    datagen/output/batch_status.json  (배치 ID 및 상태 저장)
+    입력 파일명을 기반으로 자동 결정됩니다.
+    예) batch_input.jsonl      → datagen/output/batch_input_status.json
+        gold_batch_input.jsonl → datagen/output/gold_batch_input_status.json
+
+CLI 인수:
+    --input PATH        업로드할 JSONL 파일 경로.
+                        지정하지 않으면 스크립트 위치 기준으로
+                        datagen/output/batch_input.jsonl 을 사용합니다.
+
+    --output PATH       상태 파일 저장 경로.
+                        지정하지 않으면 입력 파일과 같은 디렉터리에
+                        {입력파일명}_status.json 으로 저장됩니다.
+
+    --wait              배치 완료까지 폴링 대기합니다.
+                        지정하지 않으면 제출 후 즉시 종료합니다.
+
+    --poll-interval N   폴링 간격 (초).
+                        기본값: 60
 """
 
 import argparse
@@ -16,7 +33,7 @@ from pathlib import Path
 import openai
 
 
-def main():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Batch API 배치를 제출하고 상태를 확인합니다."
     )
@@ -25,6 +42,12 @@ def main():
         type=str,
         default=None,
         help="업로드할 JSONL 파일 경로 (기본값: datagen/output/batch_input.jsonl)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="상태 파일 저장 경로 (기본값: 입력 파일과 같은 디렉터리에 {입력파일명}_status.json)",
     )
     parser.add_argument(
         "--wait",
@@ -37,7 +60,11 @@ def main():
         default=60,
         help="폴링 간격 (초, 기본값: 60)",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
 
     # 입력 경로 설정
     if args.input is None:
@@ -50,17 +77,20 @@ def main():
         print("[힌트] 먼저 `python -m datagen.generate_batch`를 실행하세요.")
         return
 
-    status_path = Path(__file__).parent / "output" / "batch_status.json"
+    if args.output is None:
+        status_path = input_path.parent / f"{input_path.stem}_status.json"
+    else:
+        status_path = Path(args.output)
     status_path.parent.mkdir(parents=True, exist_ok=True)
     client = openai.OpenAI()
 
-    # ── Step 1: 파일 업로드 ──
+    # Step 1: 파일 업로드
     print(f"[1/3] 파일 업로드 중: {input_path}")
     with open(input_path, "rb") as f:
         uploaded_file = client.files.create(file=f, purpose="batch")
     print(f"  → 파일 ID: {uploaded_file.id}")
 
-    # ── Step 2: 배치 생성 ──
+    # Step 2: 배치 생성
     print("[2/3] 배치 생성 중...")
     batch = client.batches.create(
         input_file_id=uploaded_file.id,
@@ -84,7 +114,7 @@ def main():
         json.dump(status_info, f, ensure_ascii=False, indent=2)
     print(f"  → 상태 저장: {status_path}")
 
-    # ── Step 3: (선택) 폴링 대기 ──
+    # Step 3: (선택) 폴링 대기
     if args.wait:
         print(f"[3/3] 배치 완료 대기 중 (폴링 간격: {args.poll_interval}초)...")
         while True:
