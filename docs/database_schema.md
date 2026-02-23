@@ -1,13 +1,13 @@
-# 🍽️ Food Delivery Database Schema
+# Food Delivery Database Schema
 
 이 문서는 8개의 테이블로 구성된 음식 배달 서비스의 데이터베이스 스키마를 정의합니다.
 **특징**: JSONB 제거, 메뉴 옵션 제거, Payments 테이블 통합 (Orders에 포함).
 
 ---
 
-## 🏗️ 1. Users & Addresses (사용자 및 주소)
+## 1. Users & Addresses (사용자 및 주소)
 
-### 📌 `users`
+### `users`
 사용자 기본 정보를 저장합니다.
 
 | 컬럼명       | 타입         | 제약조건         | 설명      |
@@ -18,7 +18,7 @@
 | `name`       | VARCHAR(100) | NOT NULL         | 이름      |
 | `created_at` | TIMESTAMPTZ  | DEFAULT now()    | 생성일    |
 
-### 📌 `addresses`
+### `addresses`
 사용자의 배송지 정보를 저장합니다. 사용자당 기본 배송지는 1개로 제한됩니다.
 
 | 컬럼명           | 타입         | 제약조건                         | 설명                  |
@@ -38,9 +38,9 @@
 
 ---
 
-## 🏪 2. Restaurants & Menu (식당 및 메뉴)
+## 2. Restaurants & Menu (식당 및 메뉴)
 
-### 📌 `restaurants`
+### `restaurants`
 식당 정보 및 영업 시간을 저장합니다.
 
 | 컬럼명             | 타입         | 설명           |
@@ -61,7 +61,7 @@
 | `weekend_close`    | TIME         | 주말 마감 시간 |
 | `created_at`       | TIMESTAMPTZ  | 생성일         |
 
-### 📌 `menu_items`
+### `menu_items`
 식당의 메뉴 정보를 저장합니다. 옵션 기능은 제외되었습니다.
 
 | 컬럼명          | 타입         | 제약조건                               | 설명           |
@@ -77,9 +77,9 @@
 
 ---
 
-## 🛒 3. Cart (장바구니)
+## 3. Cart (장바구니)
 
-### 📌 `carts`
+### `carts`
 장바구니는 사용자당 1개, 식당 1곳으로 제한됩니다.
 
 | 컬럼명          | 타입        | 제약조건                                 | 설명        |
@@ -89,7 +89,7 @@
 | `restaurant_id` | UUID        | FK (restaurants.id), NOT NULL            | 식당        |
 | `updated_at`    | TIMESTAMPTZ | DEFAULT now()                            | 최종 수정일 |
 
-### 📌 `cart_items`
+### `cart_items`
 장바구니에 담긴 개별 메뉴 아이템입니다.
 
 | 컬럼명                | 타입         | 제약조건                         | 설명           |
@@ -108,9 +108,9 @@
 
 ---
 
-## 📦 4. Orders (주문 및 결제)
+## 4. Orders (주문 및 결제)
 
-### 📌 `orders`
+### `orders`
 주문 정보와 결제 정보, 배송지 스냅샷을 포함합니다.
 
 | 컬럼명          | 타입        | 제약조건                       | 설명                                                       |
@@ -147,7 +147,7 @@
 | `payment_status` | VARCHAR(20)  | pending, paid, failed, cancelled, refunded |
 | `paid_at`        | TIMESTAMPTZ  | 결제 완료 시각                             |
 
-### 📌 `order_items`
+### `order_items`
 주문 당시의 메뉴 정보 스냅샷입니다.
 
 | 컬럼명                | 타입         | 설명                              |
@@ -162,7 +162,7 @@
 
 ---
 
-## 🔎 설계 요약
+## 설계 요약
 
 | 포인트            | 설명                                                                 |
 | :---------------- | :------------------------------------------------------------------- |
@@ -172,7 +172,7 @@
 | **스냅샷 저장**   | 주문 시점의 가격, 이름, 주소 정보를 별도 컬럼으로 저장하여 이력 보존 |
 | **단순 영업시간** | 평일/주말 구분으로 스키마 단순화                                     |
 
-## 🚀 권장 인덱스
+## 권장 인덱스
 
 - `addresses(user_id)`: 사용자별 주소 조회
 - `addresses(user_id, is_default) WHERE is_default = TRUE`: 기본 배송지 유니크 보장

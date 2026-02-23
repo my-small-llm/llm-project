@@ -1,4 +1,4 @@
-# 🍽️ AI Agent Tool Calling 함수 명세
+# AI Agent Tool Calling 함수 명세
 
 > **기준 스키마**: 8개 테이블, JSONB 없음, 메뉴 옵션 없음, 쿠폰 없음, Payments 테이블 없음
 > 
@@ -6,7 +6,7 @@
 
 ---
 
-## 1️⃣ `search_restaurants`
+## 1. `search_restaurants`
 
 ### 기능
 식당 목록을 검색/필터/정렬하여 페이지 단위로 반환합니다.
@@ -55,7 +55,7 @@ await search_restaurants(
 
 ---
 
-## 2️⃣ `get_restaurant_detail`
+## 2. `get_restaurant_detail`
 
 ### 기능
 식당 기본 정보와 메뉴 목록을 조회합니다.
@@ -82,7 +82,7 @@ await get_restaurant_detail(
 
 ---
 
-## 3️⃣ `upsert_address`
+## 3. `upsert_address`
 
 ### 기능
 주소를 신규 생성하거나 기존 주소를 수정합니다.
@@ -137,7 +137,7 @@ await upsert_address(
 
 ---
 
-## 4️⃣ `list_addresses`
+## 4. `list_addresses`
 
 ### 기능
 사용자의 배송지 목록을 조회합니다.
@@ -159,7 +159,7 @@ await list_addresses(
 
 ---
 
-## 5️⃣ `get_cart`
+## 5. `get_cart`
 
 ### 기능
 사용자의 장바구니 상태와 금액 합계를 조회합니다.
@@ -182,7 +182,7 @@ await get_cart(
 
 ---
 
-## 6️⃣ `add_to_cart`
+## 6. `add_to_cart`
 
 ### 기능
 카트에 메뉴를 추가합니다. (1카트=1식당 정책)
@@ -229,7 +229,7 @@ await add_to_cart(
 
 ---
 
-## 7️⃣ `update_cart_item`
+## 7. `update_cart_item`
 
 ### 기능
 카트 내 특정 아이템의 수량이나 요청사항을 수정합니다.
@@ -258,7 +258,7 @@ await update_cart_item(
 
 ---
 
-## 8️⃣ `remove_cart_items`
+## 8. `remove_cart_items`
 
 ### 기능
 카트에서 특정 아이템을 삭제합니다.
@@ -282,7 +282,7 @@ await remove_cart_items(
 
 ---
 
-## 9️⃣ `prepare_checkout`
+## 9. `prepare_checkout`
 
 ### 기능
 주문 생성 전 최종 금액을 계산하고 주문 스냅샷을 생성합니다.
@@ -309,7 +309,7 @@ snapshot = await prepare_checkout(
 
 ---
 
-## 🔟 `place_order`
+## 10. `place_order`
 
 ### 기능
 주문을 확정하고 `order_items`를 생성합니다. 결제 정보는 `orders` 테이블 컬럼에 저장됩니다.
@@ -335,7 +335,7 @@ order_id = await place_order(
 
 ---
 
-## 1️⃣1️⃣ `get_order_status`
+## 11. `get_order_status`
 
 ### 기능
 주문 상태 및 결제 상태를 조회합니다.
@@ -369,7 +369,7 @@ await get_order_status(
 
 ---
 
-## 📌 참고: 제거된 기능 (현재 스키마 기준)
+## 참고: 제거된 기능 (현재 스키마 기준)
 
 | 기능                    | 이유                                    |
 | :---------------------- | :-------------------------------------- |
