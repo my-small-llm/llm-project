@@ -355,7 +355,7 @@ async def update_cart_item(
     Args:
         user_id: 장바구니 소유 사용자 UUID
         cart_item_id: 수정할 장바구니 항목 UUID
-        quantity: 변경할 수량 (None이면 기존 수량 유지)
+        quantity: 변경할 수량 (None이면 기존 수량 유지, 지정 시 1 이상이어야 함)
         special_request: 변경할 요청 사항 (None이면 기존 값 유지)
 
     Returns:

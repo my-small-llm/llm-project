@@ -510,12 +510,7 @@ tools_return_format = [
     {
         "function_name": "get_cart",
         "result_columns_format": {
-            "cart_id": "string",
-            "user_id": "string",
-            "restaurant_id": "string",
-            "items": "list(dict[cart_item_id: string, menu_item_id: string, menu_name: string, quantity: integer, unit_price_snapshot: integer, special_request: string|null, line_total: integer])",
-            "item_count": "integer",
-            "subtotal": "integer",
+            "return": "dict[cart_id: string, user_id: string, restaurant_id: string, items: list(dict[cart_item_id: string, menu_item_id: string, menu_name: string, quantity: integer, unit_price_snapshot: integer, special_request: string|null, line_total: integer]), item_count: integer, subtotal: integer] | null (장바구니가 없으면 null 반환)",
         },
     },
     {
