@@ -18,7 +18,7 @@ export OPENAI_API_KEY="sk-..."
 
 파인튜닝에 사용할 대량의 멀티턴 대화 데이터를 생성하고 HuggingFace Hub에 업로드하는 파이프라인입니다.
 
-```
+```text
 generate_batch → submit_batch → retrieve_batch → preprocess → render_txt → push_to_hub
 ```
 
@@ -39,7 +39,21 @@ python -m datagen.generate_batch --count 400
 ```
 
 - **API 호출 없이** 로컬에서 파일만 생성합니다.
-- 출력: `datagen/output/batch_input.jsonl`
+- 입력: 없음 (ChatbotData.csv를 원격 URL에서 로드, API 호출 없음)
+- 출력: `train_data/batch_input.jsonl`
+
+```json
+{
+  "custom_id": "req-0",
+  "method": "POST",
+  "url": "/v1/responses",
+  "body": {
+    "model": "gpt-5-2025-08-07",
+    "instructions": "당신은 배달 앱 AI 상담사 역할을 부여하는 시스템 프롬프트입니다...",
+    "input": "[고객 ID] a1661d37-...\n[대화날짜] 2024-05-23\n..."
+  }
+}
+```
 
 ### Step 2. Batch API 제출 (`submit_batch.py`)
 
@@ -50,7 +64,19 @@ Step 1에서 만든 JSONL 파일을 OpenAI Batch API에 제출합니다.
 python -m datagen.submit_batch --wait
 ```
 
-- 출력: `datagen/output/batch_input_status.json`
+- 입력: `train_data/batch_input.jsonl`
+- 출력: `train_data/batch_input_status.json`
+
+```json
+{
+  "batch_id": "batch_699e7fc6c2c88190bf2b40deb2b7012e",
+  "input_file_id": "file-WcrgY9JLGue8J9tdHEvqq9",
+  "status": "completed",
+  "created_at": "1748000000",
+  "output_file_id": "file-AbCdEfGh1234",
+  "error_file_id": null
+}
+```
 
 ### Step 3. 결과 다운로드 (`retrieve_batch.py`)
 
@@ -60,7 +86,15 @@ OpenAI 서버에서 배치 처리가 완료되면 결과 대화 데이터를 다
 python -m datagen.retrieve_batch
 ```
 
-- 출력: `datagen/output/result_lst.json`
+- 입력: `train_data/batch_input_status.json` (batch_id 추출)
+- 출력: `train_data/result_lst.json`
+
+```json
+[
+  "[고객 ID] a1661d37-87bb-44e9-b2b3-ad951c237ba5\n[대화날짜] 2024-05-23\n(고객) 짜장면 맛있는 집 찾아줘\n(function_call) [{\"name\": \"search_restaurants\", \"arguments\": {\"query\": \"짜장면\"}}]\n(function_response) {\"items\": [...]}\n(AI 상담사) 홍콩반점이 인근에 있습니다.",
+  "..."
+]
+```
 
 ### Step 4. 파싱 및 전처리 (`preprocess.py`)
 
@@ -70,7 +104,8 @@ python -m datagen.retrieve_batch
 python -m datagen.preprocess
 ```
 
-- 출력: `datagen/output/dataset.jsonl`
+- 입력: `train_data/result_lst.json`
+- 출력: `train_data/dataset.jsonl`
 
 **저장되는 데이터 형태 (`dataset.jsonl` 예시)**:
 
@@ -97,17 +132,44 @@ python -m datagen.preprocess
 
 ```bash
 python -m datagen.render_txt
-# --input 생략 시 datagen/output/dataset.jsonl 자동 사용
+# --input 생략 시 train_data/dataset.jsonl 자동 사용
 ```
 
-- 출력: `datagen/output/samples/sample_0001.txt`, `sample_0002.txt`, ...
+- 입력: `train_data/dataset.jsonl`
+- 출력: `train_data/samples/sample_0001.txt`, `sample_0002.txt`, ...
+
+```text
+<|im_start|>system
+당신은 배달 앱 AI 상담사입니다...
+<tools>
+{"type": "function", "function": {"name": "search_restaurants", ...}}
+...
+</tools>
+<|im_end|>
+<|im_start|>user
+짜장면 맛있는 집 찾아줘
+<|im_end|>
+<|im_start|>assistant
+<tool_call>
+{"name": "search_restaurants", "arguments": {"query": "짜장면"}}
+</tool_call>
+<|im_end|>
+<|im_start|>user
+<tool_response>
+{"items": [{"restaurant_id": "uuid1", "name": "홍콩반점", ...}]}
+</tool_response>
+<|im_end|>
+<|im_start|>assistant
+홍콩반점이 인근에 있습니다. 주문하시겠습니까?
+<|im_end|>
+```
 
 ### Step 6. HuggingFace Hub 업로드 (`push_to_hub.py`)
 
 전처리가 완료된 `dataset.jsonl`을 HuggingFace Hub에 업로드합니다.
 
 ```bash
-python -m datagen.push_to_hub --input datagen/output/dataset.jsonl --repo-id "your-hf-account/delivery-dataset"
+python -m datagen.push_to_hub --input train_data/dataset.jsonl --repo-id "your-hf-account/delivery-dataset"
 ```
 
 ---
@@ -116,8 +178,8 @@ python -m datagen.push_to_hub --input datagen/output/dataset.jsonl --repo-id "yo
 
 파인튜닝된 모델의 성능을 벤치마킹하기 위한 별도 파이프라인입니다.
 
-```
-generate_gold_batch → submit_batch → retrieve_batch
+```text
+generate_gold_batch → submit_batch → retrieve_batch → preprocess → render_txt
 ```
 
 ### Step 1. 평가용 골드 배치 생성 (`generate_gold_batch.py`)
@@ -125,7 +187,7 @@ generate_gold_batch → submit_batch → retrieve_batch
 8개 카테고리 × 10건 = **80건**의 평가 전용 배치 파일을 생성합니다.
 
 | 카테고리 | 설명 |
-|----------|------|
+| -------- | ---- |
 | 단순/연속 검색 | `search_restaurants` 반복 호출 |
 | 메뉴 조회 | `get_restaurant_detail` 컨텍스트 의존성 |
 | 장바구니 조작 | `add/update/remove_cart_*` 복합 사용 |
@@ -139,30 +201,58 @@ generate_gold_batch → submit_batch → retrieve_batch
 python -m datagen.generate_gold_batch
 ```
 
-- 출력: `datagen/output/gold_batch_input.jsonl`
+- 출력: `eval_data/gold_batch_input.jsonl`
 
-### Step 2. Batch API 제출 (`submit_batch.py`)
+### Step 2. Batch API 제출 — 평가용 (`submit_batch.py`)
 
 ```bash
 python -m datagen.submit_batch \
-    --input datagen/output/gold_batch_input.jsonl \
-    --output datagen/output/gold_batch_input_status.json \
+    --input eval_data/gold_batch_input.jsonl \
+    --output eval_data/gold_batch_input_status.json \
     --wait
 ```
 
-### Step 3. 결과 다운로드 (`retrieve_batch.py`)
+- 입력: `eval_data/gold_batch_input.jsonl`
+- 출력: `eval_data/gold_batch_input_status.json`
+
+### Step 3. 결과 다운로드 — 평가용 (`retrieve_batch.py`)
 
 ```bash
 python -m datagen.retrieve_batch \
-    --status-file datagen/output/gold_batch_input_status.json
+    --status-file eval_data/gold_batch_input_status.json
 ```
+
+- 입력: `eval_data/gold_batch_input_status.json`
+- 출력: `eval_data/result_lst.json`
+
+### Step 4. 파싱 및 전처리 — 평가용 (`preprocess.py`)
+
+```bash
+python -m datagen.preprocess \
+    --input  eval_data/result_lst.json \
+    --output eval_data/dataset.jsonl
+```
+
+- 입력: `eval_data/result_lst.json`
+- 출력: `eval_data/dataset.jsonl`
+
+### Step 5. 샘플 텍스트 내보내기 — 평가용 (`render_txt.py`)
+
+```bash
+python -m datagen.render_txt \
+    --input  eval_data/dataset.jsonl \
+    --output eval_data/samples
+```
+
+- 입력: `eval_data/dataset.jsonl`
+- 출력: `eval_data/samples/sample_0001.txt`, `sample_0002.txt`, ...
 
 ---
 
 ## 설정 관리 (`config.py` & `prompts.py`)
 
 | 파일 | 주요 내용 |
-|------|-----------|
+| ---- | --------- |
 | `config.py` | `USER_IDS`, `QUESTION_TOPICS`, `UNSUPPORTED_SCENARIOS`, `GOLD_CATEGORIES`, 도구 명세(`tools`), 반환 포맷(`tools_return_format`). **데이터 구조가 변경되면 이 파일을 가장 먼저 수정합니다.** |
 | `prompts.py` | `SYSTEM_PROMPT_FIXED` (상담사 기본 지침). 응답 턴 수 제어 또는 어투 변경 시 이 파일을 수정합니다. |
 
@@ -170,7 +260,7 @@ python -m datagen.retrieve_batch \
 
 ## 파일 구조
 
-```
+```text
 datagen/
 ├── __init__.py                  # 패키지 초기화
 ├── config.py                    # 설정 (user_ids, 시나리오, tools, tools_return_format)
@@ -183,14 +273,20 @@ datagen/
 ├── render_txt.py                # 학습용 Step 5: dataset.jsonl → 개별 .txt 파일
 ├── push_to_hub.py               # 학습용 Step 6: 데이터셋 허브 업로드
 ├── run_generate.sh              # Step 1~5 일괄 실행 스크립트
+├── run_generate_eval.sh         # 평가용 골드 Step 1~5 일괄 실행 스크립트
 ├── README.md                    # 이 문서
 │
-└── output/                      # 단계별 출력 파일 (git-ignored)
-    ├── batch_input.jsonl        # 학습용 Batch API 입력 파일
-    ├── batch_input_status.json  # 학습용 배치 상태 정보
-    ├── gold_batch_input.jsonl   # 평가용 Batch API 입력 파일
+├── train_data/                  # 학습용 단계별 출력 파일 (git-ignored)
+│   ├── batch_input.jsonl        # 학습용 Batch API 입력 파일
+│   ├── batch_input_status.json  # 학습용 배치 상태 정보
+│   ├── result_lst.json          # 결과 다운로드 원본 리스트
+│   ├── dataset.jsonl            # 전처리 완료 데이터셋
+│   └── samples/                 # render_txt.py 출력 디렉터리
+│
+└── eval_data/                        # 평가용 단계별 출력 파일 (git-ignored)
+    ├── gold_batch_input.jsonl        # 평가용 Batch API 입력 파일
     ├── gold_batch_input_status.json  # 평가용 배치 상태 정보
-    ├── result_lst.json          # 결과 다운로드 원본 리스트
-    ├── dataset.jsonl            # 전처리 완료 데이터셋
-    └── samples/                 # render_txt.py 출력 디렉터리
+    ├── result_lst.json               # 결과 다운로드 원본 리스트
+    ├── dataset.jsonl                 # 전처리 완료 데이터셋
+    └── samples/                      # render_txt.py 출력 디렉터리
 ```

@@ -5,6 +5,8 @@ memo.md
 CLAUDE.md
 mini_samples_n55
 synthetic_data
+train_data
+eval_data
 
 # Python
 __pycache__/
