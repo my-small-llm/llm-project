@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# datagen 전체 파이프라인 실행 스크립트
-# 사용법 (llm-project 루트에서 실행): bash datagen/run_generate.sh
+# 골드 평가 데이터셋 생성 파이프라인
+# 사용법 (llm-project 루트에서 실행): bash datagen/run_generate_eval.sh
 
 set -euo pipefail
 
 # 경로
-OUTPUT_DIR="train_data"
-BATCH_INPUT="${OUTPUT_DIR}/batch_input.jsonl"
-STATUS_FILE="${OUTPUT_DIR}/batch_input_status.json"
+OUTPUT_DIR="eval_data"
+BATCH_INPUT="${OUTPUT_DIR}/gold_batch_input.jsonl"
+STATUS_FILE="${OUTPUT_DIR}/gold_batch_input_status.json"
 RESULT_FILE="${OUTPUT_DIR}/result_lst.json"
 DATASET_FILE="${OUTPUT_DIR}/dataset.jsonl"
 SAMPLES_DIR="${OUTPUT_DIR}/samples"
 
 # 파라미터
-COUNT=4
+COUNT=5
 SEED=42
 POLL_INTERVAL=60
 
-echo "[1/5] generate_batch → ${BATCH_INPUT}"
-python -m datagen.generate_batch \
+echo "[1/5] generate_gold_batch → ${BATCH_INPUT}"
+python -m datagen.generate_gold_batch \
     --count  "${COUNT}" \
     --seed   "${SEED}" \
     --output "${BATCH_INPUT}"

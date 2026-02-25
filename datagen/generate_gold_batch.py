@@ -2,7 +2,7 @@
 평가용 골드 데이터 세트(Gold Testset) JSONL 생성 파이프라인.
 
 사용법:
-    python -m datagen.generate_gold_batch [--output PATH] [--seed N]
+    python -m datagen.generate_gold_batch [--output PATH] [--seed N] [--count N]
 
 출력:
     datagen/output/gold_batch_input.jsonl
@@ -16,6 +16,10 @@ CLI 인수:
     --seed   INT   random 모듈의 시드값.
                    동일한 시드를 사용하면 USER_IDS 샘플링 결과가 재현됩니다.
                    기본값: 42
+
+    --count  INT   카테고리당 생성 개수.
+                   지정하면 GOLD_CATEGORIES의 count를 모두 이 값으로 덮어씁니다.
+                   지정하지 않으면 GOLD_CATEGORIES 각 카테고리의 기본값을 사용합니다.
 """
 
 import argparse
@@ -78,6 +82,12 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="랜덤 시드 (재현성, 기본값: 42)",
     )
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=None,
+        help="카테고리당 생성 개수 (기본값: GOLD_CATEGORIES 각 카테고리의 count 사용)",
+    )
     return parser.parse_args()
 
 
@@ -95,7 +105,7 @@ def main():
     total_count = 0
     with open(output_path, "w", encoding="utf-8") as f:
         for category_name, info in GOLD_CATEGORIES.items():
-            run_count = info["count"]
+            run_count = args.count if args.count is not None else info["count"]
             instruction = info["instruction"]
 
             for i in range(run_count):
