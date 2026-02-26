@@ -1,4 +1,4 @@
-"""Rule 1: im_start / im_end 짝 검증 (엄격 순서)"""
+"""Rule 1: im_start / im_end 짝 검증 및 연속 블록 탐지"""
 from __future__ import annotations
 
 import re
@@ -46,5 +46,25 @@ def check_im_pairing(text: str) -> list[FormatError]:
             message="파일 끝에 닫히지 않은 블록 존재",
             token_index=len(tokens),
         ))
+
+    return errors
+
+
+def check_consecutive_roles(text: str) -> list[FormatError]:
+    """assistant 블록이 연속으로 등장하는지 검사한다.
+
+    올바른 ChatML 포맷에서 여러 tool_call은 단일 assistant 블록 안에
+    나란히 위치해야 한다. 연속된 assistant 블록은 병렬 함수 호출을
+    별도 블록으로 잘못 분리한 패턴을 나타낸다.
+    """
+    roles = re.findall(r"<\|im_start\|>(\w+)", text)
+    errors: list[FormatError] = []
+
+    for i in range(1, len(roles)):
+        if roles[i] == "assistant" and roles[i - 1] == "assistant":
+            errors.append(FormatError(
+                message=f"assistant 블록이 연속으로 등장 (병렬 tool_call 패턴 의심)",
+                token_index=i,
+            ))
 
     return errors

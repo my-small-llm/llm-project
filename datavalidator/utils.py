@@ -11,10 +11,16 @@ class Block:
     role: str        # "system" | "user" | "assistant"
     content: str
     index: int       # 파일 내 몇 번째 블록인지 (0-based)
+    line_start: int  # 블록 시작 줄 번호 (1-based)
 
 
 def load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _char_to_line(text: str, char_pos: int) -> int:
+    """문자 오프셋을 1-based 줄 번호로 변환한다."""
+    return text[:char_pos].count("\n") + 1
 
 
 def parse_blocks(text: str) -> list[Block]:
@@ -24,6 +30,11 @@ def parse_blocks(text: str) -> list[Block]:
         re.DOTALL,
     )
     return [
-        Block(role=m.group(1), content=m.group(2), index=i)
+        Block(
+            role=m.group(1),
+            content=m.group(2),
+            index=i,
+            line_start=_char_to_line(text, m.start()),
+        )
         for i, m in enumerate(pattern.finditer(text))
     ]
