@@ -8,4 +8,5 @@ trl==0.19.1
 peft==0.18.1
 openai==2.20.0
 bitsandbytes
+matplotlib
 ipykernel
