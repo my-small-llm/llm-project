@@ -101,6 +101,7 @@ class SchemaError:
     rule: str          # "tool_call" | "tool_response"
     block_index: int   # 파일 내 몇 번째 블록인지
     message: str
+    line_start: int = 0  # 블록 시작 줄 번호 (1-based)
 
 
 # ── Rule 2 ────────────────────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ class SchemaError:
 _TOOL_CALL_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
 
 
-def check_tool_call(block_content: str, block_index: int) -> list[SchemaError]:
+def check_tool_call(block_content: str, block_index: int, line_start: int = 0) -> list[SchemaError]:
     """assistant 블록의 <tool_call> JSON을 검증한다."""
     errors: list[SchemaError] = []
     match = _TOOL_CALL_RE.search(block_content)
@@ -119,7 +120,7 @@ def check_tool_call(block_content: str, block_index: int) -> list[SchemaError]:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        errors.append(SchemaError("tool_call", block_index, f"JSON 파싱 실패: {e}"))
+        errors.append(SchemaError("tool_call", block_index, f"JSON 파싱 실패: {e}", line_start))
         return errors
 
     name = data.get("name")
@@ -129,7 +130,8 @@ def check_tool_call(block_content: str, block_index: int) -> list[SchemaError]:
     if name not in FUNCTIONS:
         errors.append(SchemaError(
             "tool_call", block_index,
-            f"알 수 없는 함수명: '{name}'"
+            f"알 수 없는 함수명: '{name}'",
+            line_start,
         ))
         return errors
 
@@ -140,13 +142,15 @@ def check_tool_call(block_content: str, block_index: int) -> list[SchemaError]:
         if key not in param_hints:
             errors.append(SchemaError(
                 "tool_call", block_index,
-                f"함수 '{name}'에 존재하지 않는 파라미터: '{key}'"
+                f"함수 '{name}'에 존재하지 않는 파라미터: '{key}'",
+                line_start,
             ))
             continue
         if not _type_matches(value, param_hints[key]):
             errors.append(SchemaError(
                 "tool_call", block_index,
-                f"파라미터 '{key}': 기대 타입 {param_hints[key]}, 실제 값 타입 {type(value).__name__}"
+                f"파라미터 '{key}': 기대 타입 {param_hints[key]}, 실제 값 타입 {type(value).__name__}",
+                line_start,
             ))
 
     return errors
@@ -161,6 +165,7 @@ def check_tool_response(
     block_content: str,
     block_index: int,
     last_called_func: str | None,
+    line_start: int = 0,
 ) -> list[SchemaError]:
     """user 블록의 <tool_response> JSON을 검증한다."""
     errors: list[SchemaError] = []
@@ -171,7 +176,8 @@ def check_tool_response(
     if last_called_func is None:
         errors.append(SchemaError(
             "tool_response", block_index,
-            "대응하는 tool_call 없이 tool_response 등장"
+            "대응하는 tool_call 없이 tool_response 등장",
+            line_start,
         ))
         return errors
 
@@ -190,7 +196,8 @@ def check_tool_response(
         if not isinstance(value, str):
             errors.append(SchemaError(
                 "tool_response", block_index,
-                f"함수 '{last_called_func}' 반환 타입은 str이어야 하나 {type(value).__name__} 수신"
+                f"함수 '{last_called_func}' 반환 타입은 str이어야 하나 {type(value).__name__} 수신",
+                line_start,
             ))
         return errors
 
@@ -198,7 +205,7 @@ def check_tool_response(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        errors.append(SchemaError("tool_response", block_index, f"JSON 파싱 실패: {e}"))
+        errors.append(SchemaError("tool_response", block_index, f"JSON 파싱 실패: {e}", line_start))
         return errors
 
     # list 반환 타입 (list_addresses, get_cart 등)
@@ -208,7 +215,8 @@ def check_tool_response(
         if not isinstance(data, list):
             errors.append(SchemaError(
                 "tool_response", block_index,
-                f"함수 '{last_called_func}' 반환 타입은 list이어야 하나 {type(data).__name__} 수신"
+                f"함수 '{last_called_func}' 반환 타입은 list이어야 하나 {type(data).__name__} 수신",
+                line_start,
             ))
         return errors
 
@@ -223,7 +231,8 @@ def check_tool_response(
         if not isinstance(data, dict):
             errors.append(SchemaError(
                 "tool_response", block_index,
-                f"함수 '{last_called_func}' 반환 타입은 dict이어야 하나 {type(data).__name__} 수신"
+                f"함수 '{last_called_func}' 반환 타입은 dict이어야 하나 {type(data).__name__} 수신",
+                line_start,
             ))
             return errors
 
@@ -236,20 +245,23 @@ def check_tool_response(
             if key not in data:
                 errors.append(SchemaError(
                     "tool_response", block_index,
-                    f"필드 누락: '{key}' (함수: '{last_called_func}')"
+                    f"필드 누락: '{key}' (함수: '{last_called_func}')",
+                    line_start,
                 ))
                 continue
             if not _type_matches(data[key], hint):
                 errors.append(SchemaError(
                     "tool_response", block_index,
-                    f"필드 '{key}': 기대 타입 {hint}, 실제 값 타입 {type(data[key]).__name__}"
+                    f"필드 '{key}': 기대 타입 {hint}, 실제 값 타입 {type(data[key]).__name__}",
+                    line_start,
                 ))
 
         for key in data:
             if key not in field_hints:
                 errors.append(SchemaError(
                     "tool_response", block_index,
-                    f"스펙에 없는 필드: '{key}' (함수: '{last_called_func}')"
+                    f"스펙에 없는 필드: '{key}' (함수: '{last_called_func}')",
+                    line_start,
                 ))
 
     return errors

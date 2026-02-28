@@ -5,7 +5,7 @@ import argparse
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from datavalidator.rules.format import check_im_pairing, FormatError
+from datavalidator.rules.format import check_im_pairing, check_consecutive_roles, FormatError
 from datavalidator.rules.schema import (
     check_tool_call,
     check_tool_response,
@@ -34,10 +34,16 @@ def validate_file(path: Path) -> FileResult:
     text = load_text(path)
     result = FileResult(path=path)
 
-    # Rule 1
+    # Rule 1-a: im_start/im_end 짝 검증
     result.format_errors = check_im_pairing(text)
 
-    # Rule 1 실패 시 블록 파싱이 불가하므로 Rule 2, 3 건너뜀
+    # Rule 1-a 실패 시 블록 파싱이 불가하므로 이후 규칙 건너뜀
+    if result.format_errors:
+        return result
+
+    # Rule 1-b: 연속 assistant 블록 탐지 (병렬 tool_call 패턴)
+    result.format_errors.extend(check_consecutive_roles(text))
+
     if result.format_errors:
         return result
 
@@ -47,7 +53,7 @@ def validate_file(path: Path) -> FileResult:
     for block in blocks:
         if block.role == "assistant":
             result.schema_errors.extend(
-                check_tool_call(block.content, block.index)
+                check_tool_call(block.content, block.index, block.line_start)
             )
             name = extract_called_func_name(block.content)
             if name is not None:
@@ -55,7 +61,7 @@ def validate_file(path: Path) -> FileResult:
 
         elif block.role == "user":
             result.schema_errors.extend(
-                check_tool_response(block.content, block.index, last_called_func)
+                check_tool_response(block.content, block.index, last_called_func, block.line_start)
             )
             # tool_response 블록이 소비됐으면 추적 초기화
             if "<tool_response>" in block.content:
@@ -85,7 +91,7 @@ def print_results(results: list[FileResult]) -> None:
             for e in r.format_errors:
                 print(f"         [format] token#{e.token_index}: {e.message}")
             for e in r.schema_errors:
-                print(f"         [{e.rule}] block#{e.block_index}: {e.message}")
+                print(f"         [{e.rule}] block#{e.block_index} L{e.line_start}: {e.message}")
 
     print()
     print(f"결과: {total}개 파일 중 {valid}개 통과, {invalid}개 실패")

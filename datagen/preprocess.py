@@ -111,20 +111,22 @@ def parse_to_qwen_format(text: str) -> list[dict]:
 
         elif role_type == "function_call":
             try:
-                calls = _safe_parse(content)
+                call = _safe_parse(content)
 
-                if not isinstance(calls, list):
-                    raise ValueError("function_call은 list 형태여야 합니다.")
+                if isinstance(call, list):
+                    raise ValueError("병렬 function_call 감지 (list 형식) → 샘플 스킵")
+
+                if not isinstance(call, dict):
+                    raise ValueError("function_call은 dict 형태여야 합니다.")
 
                 # 직전 assistant 메시지 제거
                 if last_role == "assistant" and messages:
                     messages.pop()
 
-                for call in calls:
-                    messages.append({
-                        "role": "assistant",
-                        "content": f"<tool_call>\n{json.dumps(call, ensure_ascii=False)}\n</tool_call>",
-                    })
+                messages.append({
+                    "role": "assistant",
+                    "content": f"<tool_call>\n{json.dumps(call, ensure_ascii=False)}\n</tool_call>",
+                })
                 last_role = "assistant"
 
             except Exception as e:
