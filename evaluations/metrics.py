@@ -43,6 +43,11 @@ def _parse_tool_call(text: str) -> dict | None:
     return parsed
 
 
+def _has_tool_call_tag(text: str) -> bool:
+    """텍스트에 <tool_call> 태그가 존재하는지 확인한다."""
+    return "<tool_call>" in text
+
+
 def _normalize_schema(tool_schemas: dict | None, function_name: str) -> dict | None:
     if not tool_schemas:
         return None
@@ -109,6 +114,14 @@ class EvalResults:
     total_tool_calls: int = 0
     total_non_tool_calls: int = 0
 
+    relevance_detection_numerator: int = 0
+    format_compliance_numerator: int = 0
+    function_matching_numerator: int = 0
+    param_hallucination_numerator: int = 0
+    required_params_numerator: int = 0
+    argument_type_numerator: int = 0
+    argument_value_numerator: int = 0
+
     relevance_detection_denominator: int = 0
     format_compliance_denominator: int = 0
     function_matching_denominator: int = 0
@@ -129,6 +142,13 @@ class EvalResults:
             "total_samples": self.total_samples,
             "total_tool_calls": self.total_tool_calls,
             "total_non_tool_calls": self.total_non_tool_calls,
+            "relevance_detection_numerator": self.relevance_detection_numerator,
+            "format_compliance_numerator": self.format_compliance_numerator,
+            "function_matching_numerator": self.function_matching_numerator,
+            "param_hallucination_numerator": self.param_hallucination_numerator,
+            "required_params_numerator": self.required_params_numerator,
+            "argument_type_numerator": self.argument_type_numerator,
+            "argument_value_numerator": self.argument_value_numerator,
             "relevance_detection_denominator": self.relevance_detection_denominator,
             "format_compliance_denominator": self.format_compliance_denominator,
             "function_matching_denominator": self.function_matching_denominator,
@@ -165,17 +185,23 @@ def evaluate_function_call_step(
     pred_tc = _parse_tool_call(prediction)
 
     label_is_tool = label_tc is not None
+    pred_has_tag = _has_tool_call_tag(prediction)
     pred_is_tool = pred_tc is not None
 
     step = StepEvaluation(
         is_tool_label=label_is_tool,
-        relevance_pass=(label_is_tool == pred_is_tool),
+        relevance_pass=(label_is_tool == pred_has_tag),
     )
 
     if not label_is_tool:
         return step
 
+    if not pred_has_tag:
+        # TC를 시도하지 않음 → relevance 실패, format 평가 대상 아님
+        return step
+
     if not pred_is_tool:
+        # TC를 시도했지만 파싱 실패 → format 실패
         step.format_pass = False
         return step
 
@@ -249,7 +275,10 @@ def evaluate_function_calls(
     relevance_den = total_samples
     relevance_num = sum(result.relevance_pass for result in step_results)
 
-    format_targets = [result for result in step_results if result.is_tool_label]
+    format_targets = [
+        result for result in step_results
+        if result.is_tool_label and result.relevance_pass
+    ]
     format_den = len(format_targets)
     format_num = sum(result.format_pass is True for result in format_targets)
 
@@ -292,6 +321,13 @@ def evaluate_function_calls(
         total_samples=total_samples,
         total_tool_calls=total_tool_calls,
         total_non_tool_calls=total_non_tool_calls,
+        relevance_detection_numerator=relevance_num,
+        format_compliance_numerator=format_num,
+        function_matching_numerator=function_num,
+        param_hallucination_numerator=halluc_num,
+        required_params_numerator=required_num,
+        argument_type_numerator=type_num,
+        argument_value_numerator=value_num,
         relevance_detection_denominator=relevance_den,
         format_compliance_denominator=format_den,
         function_matching_denominator=function_den,
