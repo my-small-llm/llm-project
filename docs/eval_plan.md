@@ -42,22 +42,28 @@ user 입력 1회에 대해 assistant가 수행하는 모든 출력(tool_call, to
 2. Function Call Correctness
    함수 호출 정확도.
 
-   2.1 Function Matching
+   2.1 Format Compliance
+       <tool_call> 태그 안의 JSON이 유효한 구조인가.
+       - JSON 파싱 성공 여부
+       - name, arguments 필드 존재 여부
+       fail 시 이후 모든 단계를 평가할 수 없으므로 자동 fail 처리한다.
+
+   2.2 Function Matching
        함수 이름이 정확히 일치하는가.
 
-   2.2 Parameter & Argument Matching
+   2.3 Parameter & Argument Matching
        함수 호출에 들어간 파라미터와 아규먼트가 명세와 일치하는가.
 
-       2.2.1 Parameter Hallucination Detection
+       2.3.1 Parameter Hallucination Detection
              모델이 예측한 파라미터 이름이 스키마에 실제로 존재하는가.
 
-       2.2.2 Required Parameters Matching
+       2.3.2 Required Parameters Matching
              필수 파라미터에 대응하는 아규먼트가 모두 존재하는가.
 
-       2.2.3 Argument Type Matching
+       2.3.3 Argument Type Matching
              아규먼트의 타입이 파라미터의 타입 명세와 일치하는가.
 
-       2.2.4 Argument Value Matching
+       2.3.4 Argument Value Matching
              아규먼트의 값이 정답과 일치하는가. (exact match)
 ```
 
@@ -79,6 +85,7 @@ micro acc ~= Σ(pass) / Σ(M_i),  i = 1..T
 ```
 
 항목별 개별 성능:
+- Format Compliance
 - Function Matching
 - Parameter Hallucination Detection
 - Required Parameters Matching
@@ -116,9 +123,9 @@ micro acc ~= Σ(pass) / Σ(N_i),  i = 1..T
 
 ### 5.2 싱글턴 분할 방식
 
-pred 히스토리 기반으로 분할한다.
-각 턴의 히스토리에 모델이 실제로 출력한 대화를 넣어
-오류 전파의 영향을 포함하여 측정한다.
+gt 히스토리 기반으로 분할한다.
+각 턴의 히스토리에 정답(gt) 대화를 넣어
+턴별 순수 툴콜링 능력을 독립적으로 측정한다.
 
 ```
 (예시) 3턴 conversation
@@ -127,20 +134,36 @@ pred 히스토리 기반으로 분할한다.
   input:  user: "서울 날씨 알려줘"
   label:  get_weather(city="서울")
 
-[싱글턴 2] — turn 1의 pred를 히스토리로 포함
-  input:  [turn 1 모델 실제 출력] + user: "거기 맛집 찾아줘"
+[싱글턴 2] — turn 1의 gt를 히스토리로 포함
+  input:  [turn 1 정답 대화] + user: "거기 맛집 찾아줘"
   label:  search_restaurant(city="서울")
 
-[싱글턴 3] — turn 1~2의 pred를 히스토리로 포함
-  input:  [turn 1~2 모델 실제 출력] + user: "첫번째로 2명 예약해줘"
+[싱글턴 3] — turn 1~2의 gt를 히스토리로 포함
+  input:  [turn 1~2 정답 대화] + user: "첫번째로 2명 예약해줘"
   label:  book_restaurant(name="○○식당", people=2)
 ```
 
-### 5.3 오류 전파에 대한 주의사항
+### 5.3 히스토리 방식 변경 이력
 
-pred 히스토리 방식에서는 이전 턴의 오류가 이후 턴의 맥락을 gt와 분기시킨다.
-이전 턴에서 오류가 발생하면 이후 턴에서 맥락이 gt와 분기되므로,
-gt label 기준 exact match에서 자연스럽게 fail이 된다.
+초기 설계에서는 pred 히스토리(모델 실제 출력을 히스토리에 누적)를 계획했으나,
+gt 히스토리(정답 대화를 히스토리에 누적)로 변경했다. 근거는 다음과 같다.
+
+1. **tool_response 생성 문제**: pred 히스토리 방식에서는 모델이 tool_call을 예측한 뒤
+   그에 대한 tool_response를 생성해야 다음 턴으로 넘어갈 수 있다.
+   현재 mock 함수(`docs/custom_functions.py`)가 입력 파라미터와 무관하게
+   하드코딩된 동일한 값을 반환하므로, 모델이 올바른 호출을 해도
+   비현실적인 tool_response가 히스토리에 쌓인다.
+   이는 eval_plan.md가 의도한 "자연스러운 오류 전파"가 아닌
+   mock의 한계에 의한 인위적 분기를 유발한다.
+
+2. **진단 용이성**: gt 히스토리에서 턴별 독립 평가를 하면,
+   "어떤 유형의 함수 호출에서 모델이 약한지"를 정확히 파악할 수 있다.
+   pred 히스토리에서는 Turn N이 틀렸을 때
+   Turn N 자체의 문제인지, 이전 턴 오류의 전파인지 구분이 어렵다.
+
+3. **단계적 확장**: gt 히스토리로 기본 성능을 먼저 확인한 뒤,
+   mock 함수를 파라미터 반응형으로 고도화하거나 DB를 연동한 후
+   pred 히스토리 방식을 추가하는 것이 현실적인 경로이다.
 
 ---
 
@@ -181,10 +204,9 @@ T=3 conversation으로 확장:
 ### 7.1 HammerBench와의 차이
 
 **히스토리 방식:**
-HammerBench는 gt 히스토리 기반 스냅샷으로 각 턴의 순수 툴콜링 능력을 측정한다.
-현재 프레임워크는 pred 히스토리를 넣어 오류 전파를 염두해서 측정한다.
-이전 턴에서 오류가 발생하면 이후 턴에서 맥락이 gt와 분기되므로,
-자연스럽게 fail 처리된다.
+HammerBench와 동일하게 gt 히스토리 기반 스냅샷으로 각 턴의 순수 툴콜링 능력을 측정한다.
+향후 mock 함수 고도화 시 pred 히스토리 방식을 추가하여 오류 전파 측정도 가능하다.
+(변경 근거는 5.3 참조)
 
 **평가 항목 세분화:**
 HammerBench는 아규먼트의 타입과 값을 Args Acc 하나로 뭉뚱그려 측정한다.
