@@ -56,3 +56,10 @@ scripts/
 
 # datagen
 datagen/output
+
+# wandb
+wandb/
+
+# checkpoints
+qwen-2.5-7b-function-calling
+qwen-2.5-7b-function-calling_4096
