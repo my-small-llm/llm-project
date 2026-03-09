@@ -1,127 +1,428 @@
-# RTX 4090 (24GB VRAM) 환경 Qwen2.5-7B 학습 VRAM 종합 분석 및 한계 돌파기
+# RTX 4090 (24GB) Qwen2.5-7B VRAM 종합 분석
 
-이 문서는 24GB VRAM(RTX 4090) 환경에서 대규모 파라미터(7.6B)와 거대한 어휘 사전(Vocab Size: 15만)을 가진 Qwen2.5-7B 모델을 긴 시퀀스(`max_seq_length=8192`)로 학습하기 위해 겪은 메모리 부족(OOM) 문제와 그 해결 과정을 상세히 기록한 문서입니다.
+RTX 4090(24GB VRAM) 단일 GPU 환경에서 Qwen2.5-7B(7.6B 파라미터, Vocab 152,064)를 긴 시퀀스(`max_seq_length=8192`)로 QLoRA SFT 학습할 때 발생한 OOM 문제와 해결 과정을 기록한 기술 문서이다.
 
-학습 시 GPU 내부에서 **어떤 텐서가 무슨 용도로 VRAM을 차지하는지**를 낱낱이 해부하고, 일반 LoRA와 QLoRA의 차이, 그리고 메모리 단편화를 잡는 파이토치 환경변수 튜닝의 효과를 4096 및 8192 시퀀스 길이별로 정밀하게 비교 분석했습니다.
+학습 시 GPU 내부에서 **어떤 텐서가 어떤 용도로 VRAM을 차지하는지** 분해하고, LoRA와 QLoRA의 차이, 메모리 단편화를 억제하는 allocator 튜닝의 효과를 시퀀스 길이별로 비교 분석한다.
 
 ---
 
-## 1. 학습할 때 "무엇이" 메모리를 먹는가? (순수 할당 메모리 해부)
+## 1. 문제 정의
 
-학습 루프가 돌아갈 때, GPU VRAM에는 크게 5가지 종류의 메모리가 **실제로 물리적인 공간을 할당(Allocated)** 받아 사용됩니다. 이들이 각각 무엇이고 왜 공간을 차지하는지에 대해 Qwen2.5-7B 아키텍처를 기준으로 상세히 설명합니다.
+### 목표
+
+- **모델**: Qwen2.5-7B-Instruct (7.6B params, GQA, Vocab 152,064)
+- **GPU**: NVIDIA RTX 4090 24GB, 단일 GPU
+- **학습 방식**: QLoRA(NF4) + SFT
+- **시퀀스 길이**: `max_seq_length=8192`
+
+### OOM 발생 조건
+
+| 조건                               | 결과                              |
+| ---------------------------------- | --------------------------------- |
+| LoRA(bf16) + seq=8192              | 모델 로드만으로 14.2GB, 학습 불가 |
+| QLoRA + seq=8192, allocator 기본값 | backward 중 OOM 발생              |
+| QLoRA + seq=4096, allocator 기본값 | 동작하나 Reserved 낭비 과다       |
+
+QLoRA를 사용하더라도 `seq=8192`에서는 allocator fragmentation으로 인한 OOM이 재현되었다.
+
+---
+
+## 2. 재현 환경
+
+### 하드웨어 및 소프트웨어
+
+| 항목          | 값                           |
+| ------------- | ---------------------------- |
+| GPU           | NVIDIA GeForce RTX 4090 24GB |
+| NVIDIA Driver | 580.126.09                   |
+| CUDA / cuDNN  | 사용 환경에 따라 확인 필요   |
+| PyTorch       | 사용 환경에 따라 확인 필요   |
+| Transformers  | 사용 환경에 따라 확인 필요   |
+| PEFT          | 사용 환경에 따라 확인 필요   |
+| bitsandbytes  | 사용 환경에 따라 확인 필요   |
+| TRL           | 사용 환경에 따라 확인 필요   |
+
+> **주의**: VRAM 사용량은 PyTorch, CUDA, bitsandbytes 버전에 따라 달라질 수 있다.
+> 본 문서의 수치를 재현하려면 동일 버전 조합을 사용해야 한다.
+
+### 학습 하이퍼파라미터
+
+`train/config.py` 기준:
+
+| 파라미터                    | 값                         | 비고                             |
+| --------------------------- | -------------------------- | -------------------------------- |
+| micro batch size            | 1                          | `per_device_train_batch_size`    |
+| gradient accumulation steps | 2                          | effective batch = 2              |
+| optimizer                   | `paged_adamw_8bit`         | 8-bit paged optimizer            |
+| gradient checkpointing      | ✅ 사용                     | activation 메모리 절감           |
+| precision                   | bf16                       | `bf16=True`                      |
+| QLoRA quant type            | NF4                        | `bnb_4bit_quant_type="nf4"`      |
+| double quantization         | ✅ 사용                     | `bnb_4bit_use_double_quant=True` |
+| LoRA rank / alpha           | r=8 / α=32                 |                                  |
+| LoRA target modules         | q, k, v, o_proj            | GQA 구조                         |
+| FlashAttention 2            | 사용 환경에 따라 확인 필요 | attention 메모리에 직접 영향     |
+| sequence packing            | 미사용                     | padding to max length            |
+| `use_cache`                 | 학습 시 자동 비활성        | Trainer 내부 처리                |
+
+### 메모리 측정 지표 정의
+
+본 문서에서 사용하는 메모리 수치는 다음과 같은 서로 다른 의미를 가진다.
+
+| 지표                                | 의미                                | 측정 도구 | 측정 시점                       |
+| ----------------------------------- | ----------------------------------- | --------- | ------------------------------- |
+| Theoretical Tensor Size             | dtype·shape 기반 이론 계산치        | 수식      | forward/backward 특정 연산 직후 |
+| `torch.cuda.memory_allocated()`     | 실제 활성 tensor가 점유 중인 메모리 | PyTorch   | step 내 특정 지점               |
+| `torch.cuda.memory_reserved()`      | allocator cache 포함 예약 메모리    | PyTorch   | step 내 특정 지점               |
+| `torch.cuda.max_memory_allocated()` | step 동안 peak allocated            | PyTorch   | step 종료 후                    |
+| `torch.cuda.max_memory_reserved()`  | step 동안 peak reserved             | PyTorch   | step 종료 후                    |
+| `nvidia-smi`                        | 프로세스 전체 GPU memory usage      | driver    | sampling 시점                   |
+
+> 본 문서의 `nvidia-smi` 수치는 **학습 진행 중 관찰된 값**이며, `Allocated` 및 `Reserved` 수치는 **이론 계산치와 nvidia-smi 역산을 혼합**한 근사값이다.
+> 향후 정밀 검증 시에는 step별 `max_memory_allocated/reserved`를 직접 기록하는 것을 권장한다.
+
+---
+
+## 3. 메모리 구성 요소 분해
+
+학습 루프가 실행될 때, GPU VRAM에는 크게 5가지 종류의 메모리가 할당된다.
 
 ### ① 베이스 모델 가중치 (고정 비용)
-학습 기반이 되는 원본 AI 모델의 뇌(파라미터) 구조 자체를 GPU에 올려두는 기본 공간입니다.
-* **일반 LoRA (bfloat16):** 76억 개 파라미터를 16-bit(2 bytes) 정밀도로 로드합니다. **총 14.2 GB를 고정적으로 차지합니다.** 모델을 올리기만 해도 24GB 중 14.2GB가 날아가므로, 긴 문장을 연산할 여유가 절대적으로 부족해집니다.
-* **QLoRA (NF4 4-bit):** 76억 개 파라미터를 4-bit(0.5 bytes) 특수 포맷으로 극한 압축하여 로드합니다. **가중치 크기가 3.5 GB로 대폭 축소됩니다.** QLoRA 다이어트의 핵심이자 필수 출발점입니다.
 
-### ② LoRA 어댑터 가중치 & 옵티마이저 (고정 비용)
-원본은 얼려두고 실제로 학습하며 수식을 덧붙이는 "추가 파라미터" 공간입니다. 그리고 이를 갱신하기 위한 "옵티마이저의 상태값(AdamW의 momentum, variance 데이터 등)"도 함께 저장됩니다.
-* 어댑터 타겟 모듈을 `q, k, v, o` 전체로 열더라도, Qwen2.5는 구조상(GQA) 추가되는 파라미터 수가 약 500만 개로 극도로 적습니다.
-* 파라미터(bf16)와 옵티마이저 상태(8-bit)의 합이 **단 48 MB**에 불과합니다. 즉, Qlora를 쓸 때 어댑터를 아무리 많이 열어도 OOM(메모리 초과)의 원인이 아닙니다.
+모델 파라미터를 GPU에 올리는 기본 공간이다.
 
-### ③ Logits(로짓) 텐서 및 그레디언트(Gradient) (거대 변동 비용 — 💥 1번째 주범)
-**OOM의 가장 큰 주범**입니다. **Logits(로짓)**은 모델이 152,064개의 방대한 사전 어휘 중 다음 단어로 무엇을 내뱉는 게 맞을지 각 확률을 계산하는 마지막 출력층의 웅장한 표(행렬)입니다. 
-학습은 정답을 맞히기 위해 역전파(Backward) 스텝을 거치는데, Loss를 구하려면 '앞으로 계산해둔 내 로짓(Forward)'과 '오차를 수정하기 위한 로짓의 기울기 값(Backward Gradient)'이 **GPU 메모리 안에 동시에 공존(Peak)** 해야만 식이 성립합니다.
+- **LoRA (bf16)**: 7.6B × 2 bytes = **약 14.2 GB** 고정. 24GB 중 60%를 모델 로드만으로 소진.
+- **QLoRA (NF4 4-bit)**: 7.6B × 0.5 bytes ≈ **약 3.5 GB**로 축소. double quantization 적용 시 추가 절감.
 
-* **계산식:** `seq_length × 152,064(Vocab) × 4 bytes (안정성을 위해 float32 정밀도 사용)`
-* **seq=4096 의 경우:** 현시점 Logits 텐서 2.3 GB + 오차 기울기 그레디언트 2.3 GB = **총 4.6 GB 동시 폭발**
-* **seq=8192 의 경우:** 현시점 Logits 텐서 4.6 GB + 오차 기울기 그레디언트 4.6 GB = **총 9.2 GB 동시 폭발**
-단순히 "로짓이 몇 기가 증가했다"가 아니라 복사본(그레디언트)까지 쌍으로 터지므로 시퀀스가 늘어날 때마다 메모리를 미친듯이 먹습니다.
+이 차이(10.7GB)가 QLoRA 전환의 핵심 근거이다.
 
-### ④ Activations (활성 함수 / 중간값 버퍼) (변동 비용)
-오차 역전파(Backward)를 하려면 앞서 순전파(Forward) 때 각 레이어를 통과하며 계산했던 복잡한 중간 결과값(Activations)들을 기억하고 있어야 합니다.
-* **Gradient Checkpointing (활성화 재계산 기법):** 중간값을 다 저장하면 7.6B 모델은 메모리가 즉시 터집니다. 메모리 낭비를 막기 위해 "레이어의 시작점"만 저장하고, 중간 과정은 지워버렸다가 나중에 필요할 때 다시 계산(Recompute)하는 생존형 기술입니다.
-* **seq=4096 의 경우:** 28개 레이어 입력 저장 버퍼 + 재계산용 임시 버퍼 = **약 0.9 GB 할당**
-* **seq=8192 의 경우:** 입력되는 데이터의 길이가 2배이므로 버퍼와 재계산 비용도 상승 = **약 1.9 GB 할당**
+### ② LoRA 어댑터 가중치 & 옵티마이저 상태 (고정 비용)
 
-### ⑤ 특정 레이어 역양자화(Dequantize) 버퍼 (QLoRA 전용 임시 비용)
-QLoRA는 앞서 Base 모델을 3.5GB(4-bit)로 극한 압축해둔 상태입니다. 하지만 GPU는 실제로 덧셈/곱셈을 할 때 반드시 원래 규격(16-bit bfloat16)으로 풀어야만 연산이 돌아갑니다.
-* 전체 모델을 다 푸는 것이 아닙니다. **지금 연산이 지나가고 있는 딱 그 레이어 1개 분량**만 임시 방을 하나 빌려 16-bit로 텐서를 풀고, 이 레이어 계산이 끝나면 즉시 방을 지워버리는 방식으로 움직입니다.
-* 그래서 모델 전체 크기와 무관하게 연산 시 항상 **약 0.45 GB (450 MB)** 의 고정된 아주 작은 임시 공간만을 추가로 차지합니다.
+원본 가중치는 동결(freeze)하고, LoRA adapter의 학습 가능 파라미터만 갱신한다.
 
----
+- Qwen2.5-7B는 **GQA(Grouped Query Attention)** 구조이므로, `q, k, v, o_proj` 전체를 LoRA 대상으로 열어도 학습 가능 파라미터는 약 **500만 개** 수준으로 적다.
+- 파라미터(bf16) + optimizer 상태(8-bit) 합산 ≈ **약 48 MB**.
 
-## 2. LoRA vs QLoRA: 시퀀스별 강제 할당량(Allocated) 크기 요약
+> LoRA trainable parameter는 전체 VRAM에서 지배적이지 않다.
+> 다만 절대 크기는 optimizer 구현(`paged_adamw_8bit`, `adamw_torch`, `fused adamw` 등)에 따라 달라진다.
+> 본 실험에서는 `paged_adamw_8bit`를 사용했으며, master weight 복사본은 생성되지 않는다.
 
-위 5가지 요소를 모두 합산했을 때, 파이토치가 학습을 위해 **어떻게든 반드시 요구하는 물리적 순수 할당 메모리(Allocated Memory)** 의 이상적인 규모는 다음과 같습니다.
+### ③ Logits 텐서 및 Gradient (변동 비용 — 핵심 병목)
 
-| 텐서 종류 (할당 목적) | QLoRA (`seq=4096`) | QLoRA (`seq=8192`) | 일반 LoRA (`seq=8192`) |
-|:---|:---:|:---:|:---:|
-| ① 가중치 | **3.5 GB** | **3.5 GB** | **14.2 GB (❌ 치명적)** |
-| ② LoRA + 옵티마이저 | 0.05 GB | 0.05 GB | 0.05 GB |
-| ③ Logits & Gradients | 4.6 GB | **9.2 GB (💥 폭증)** | 9.2 GB |
-| ④ Activations (활성화) | 0.9 GB | 1.9 GB | 1.9 GB |
-| ⑤ Dequantize 임시 방 | 0.45 GB | 0.45 GB | 0 GB (항시 풀려있음) |
-| CUDA 기본 버퍼 등 | 1.0 GB | 1.0 GB | 1.0 GB |
-| **순수 할당 합계 (Allocated)** | **~10.5 GB** | **~16.1 GB** | **~26.3 GB (물리적 불가)** |
+OOM의 **주된 원인으로 관찰된** 항목이다.
 
-일반 LoRA는 26.3GB가 필요하여 24GB RTX 4090 머신에서는 시작조차 불가능합니다.
-반면 QLoRA를 쓰면 가중치에서 무려 10GB 혜택을 보아 `seq=8192` 긴 문맥을 주더라도 필요량은 **16.1 GB** 입니다. 이론상 무조건 돌아가야 맞습니다. **그러나 현실에서는 4090이 그대로 터져버렸습니다(OOM).**
+Logits는 모델이 vocab 전체(152,064개)에 대해 다음 토큰 확률을 출력하는 최종 행렬이다.
+backward 시 loss를 계산하려면 forward에서 생성된 logits 텐서와 해당 gradient가 **동시에 GPU 메모리에 상주(peak)**해야 한다.
 
----
+- **계산식**: `B × T × V × dtype_size`
+  - B = micro batch size (본 실험: 1)
+  - T = sequence length
+  - V = vocab size (152,064)
+  - dtype_size = loss 계산 시 dtype에 따라 결정
 
-## 3. OOM의 숨은 흑막: Reserved 메모리 (메모리 단편화)
+> logits 메모리는 `batch × seq × vocab × dtype_size`에 비례하며,
+> 실제 peak는 loss 계산 구현 방식(upcast 여부, fused cross entropy, chunked loss 등)에 따라 달라진다.
+> 대형 vocab(152k)에서는 이 항이 전체 peak VRAM의 핵심 병목이 되기 쉽다.
 
-이론적 필요량은 16.1 GB인데 OOM이 발생하는 진짜 이유는 `nvidia-smi`를 찍었을 때 나타나는 용량이 앞서 계산한 순수 할당량(Allocated)이 아니기 때문입니다. 파이토치가 보이지 않게 쥐고 있는 **잉여 쓰레기 공간(Reserved)** 이 더해진 값이 진짜 메모리 점유율입니다.
+**본 실험 조건에서의 근사치** (float32 기준, logits + gradient 동시 상주 시):
 
-### Reserved (예약 메모리)의 정체
-파이토치는 텐서 연산을 마치고 이 공간을 컴퓨터(OS) 운영체제에 바로 "저 다 썼습니다" 하고 반납하지 않고 "나중에 또 쓸 테니 임시 보관(Reserved)" 해둡니다. 
-문제는 **이 반납하지 않은 공간 속에서 크고 작은 텐서들이 불규칙하게 할당되고 지워지기를 반복하다보니, 빈 공간들이 자잘하게 쪼개지는 메모리 단편화(Fragmentation)** 고질병이 발생한다는 점입니다.
+| seq_length | logits 텐서 | gradient | **peak 합산** |
+| :--------: | :---------: | :------: | :-----------: |
+|    4096    |   ~2.3 GB   | ~2.3 GB  |  **~4.6 GB**  |
+|    8192    |   ~4.6 GB   | ~4.6 GB  |  **~9.2 GB**  |
 
-우리가 쓰는 공간 중 무려 5~7 GB가 사실상 이 조각난 빈방(Reserved)인데, 정작 **연속된 하나의 방**이 없으니 4.6GB짜리 거대 로짓 그레디언트(Logit Gradient) 방을 요청할 때 "아 저렇게 큰 방은 없는데요?" 하고 GPU 크래시(OOM)를 내버리는 것입니다.
+시퀀스가 2배가 되면 logits peak도 정확히 2배가 된다. 이것이 `seq=8192`에서 OOM이 발생하는 구조적 원인이다.
 
----
+### ④ Activations (활성화 중간값 버퍼) (변동 비용)
 
-## 4. 환경변수 튜닝을 통한 단편화 사냥: 최적화 전vs후 초정밀 비교
+backward를 위해 forward 시 각 레이어의 중간 결과를 보존해야 한다.
 
-불필요한 파편화를 치우고 거대 텐서가 담길 **"연속적인 통짜 빈 룸"**을 지켜주기 위해 파이토치 환경 변수 튜닝에 돌입했습니다. 
-* ✅ **해결책:** `PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128`
-* **의미:** 파이토치에게 **"너 캐시 중에 128 MB를 초과하는 거대한 빈 메모리 방은 절대 짜잘한 변수에게 쪼개어(Split) 나눠주지 말고 통짜로 보존해 둬!"**라고 강제 명령을 내립니다. 가장 확실하게 단편화를 금지하는 주사입니다.
+- **Gradient Checkpointing**을 사용하면 모든 중간값을 저장하는 대신 **레이어 입력값만 저장**하고, 필요 시 재계산(recompute)한다. 메모리와 연산 시간의 트레이드오프이다.
+- 본 실험에서는 gradient checkpointing을 활성화한 상태이다.
 
-### 💡 핵심 통찰: Reserved 공간의 체급 자체도 텐서 크기에 비례합니다!
-`seq=4096`에서 `8192`로 가면 로짓(Logits) 텐서가 2.3GB에서 4.6GB로 커집니다. 
-파이토치가 이 커진 4.6GB짜리 거대 텐서를 보관/재사용(Caching)하려면, **그 그릇의 역할을 하는 Reserved 공간 자체도 반드시 그만큼 더 커져야만(Scale-up) 합니다.** 
-따라서 `seq=8192`에서는 텐서 증가량만큼 Reserved가 추가로 5GB 이상 부풀어 오르는 것이 너무나 당연하고 뼈아픈 이치입니다.
+| seq_length | 근사 activation 메모리 |
+| :--------: | :--------------------: |
+|    4096    |        ~0.9 GB         |
+|    8192    |        ~1.9 GB         |
 
-### 📊 [비교 1] `seq=4096` 공간의 드라마틱한 개선
-이론상 반드시 필요한 본질적 할당량(Allocated)은 **~10.5 GB** 입니다.
-이때 로짓 그레디언트 크기는 2.3GB이므로, Reserved 공간은 이를 품을 수 있는 체급이어야 합니다.
+> 긴 시퀀스에서 attention 관련 메모리는 구현체에 따라 크게 달라진다.
+> FlashAttention 계열을 사용하면 naive attention 대비 attention score materialization 비용이 줄어든다.
+> 따라서 본 문서의 activation 추정치는 **attention backend에 의존**한다.
+>
+> Activation 메모리의 세부 구성:
+> - **Attention scores / softmax 임시 버퍼**: FlashAttention 사용 시 크게 절감
+> - **QKV projection intermediate**: 레이어별 고정
+> - **MLP intermediate**: 레이어별 고정
+> - **Residual stream**: 모든 레이어에 걸쳐 유지
+> - **Checkpointing 보존 입력**: 레이어 수(28)에 비례
 
-| 설정 상태 | `nvidia-smi` 터미널 실측 용량 | Reserved 공간 (캐싱용 잉여 공간) | 결과 |
-|:---|:---:|:---:|:---:|
-| ❌ 최적화 미적용 | 터미널 점유율 **17.1 GB** | **6.6 GB (제각각 쪼개져 낭비됨)** | 동작은 함 (여유 7GB) |
-| ✅ `max_split` **적용** | 터미널 점유율 **12.5 GB** | **2.0 GB (거대 방만 깔끔히 남음)** | **12.5GB/24GB (대규모 절약 쾌적!)** |
+### ⑤ 역양자화(Dequantize) 임시 버퍼 (QLoRA 전용)
 
-> 같은 `seq=4096`임에도, 명령줄 한 줄로 **불필요한 4.6GB의 조각난 캐시 쓰레기가 청소**되어 12.5기가로 극적으로 줄어들었습니다.
+QLoRA는 가중치를 4-bit로 압축 저장하지만, 실제 연산(matmul)은 bf16으로 수행해야 한다.
 
-### 📊 [비교 2] `seq=8192` 불가능을 가능으로 돌파
-이론상 반드시 필요한 본질적 할당량(Allocated)은 **~16.1 GB** 입니다.
-이때 로짓 그레디언트 방 크기는 무려 4.6GB이므로, 이를 담기 위해 Reserved 공간의 기본 체급이 4096 때보다 훨씬 커집니다! (약 5GB 이상 팽창)
-
-| 설정 상태 | `nvidia-smi` 터미널 실측 용량 | Reserved 공간 (캐싱용 잉여 공간) | 결과 |
-|:---|:---:|:---:|:---:|
-| ❌ 최적화 미적용 | OOM 시점에 22~24GB 벽 충돌 | 할당 17.4GB + 조각난 Reserved 4.0GB에서, 4.6GB 추가 요청 시 **크래시** | ❌ 4.6GB 통짜 방을 못 찾아 OOM |
-| ✅ `max_split` **적용** | 터미널 점유율 **23.8 GB** | **7.7 GB** (4.6GB 롬을 온전히 유지한 체급) | **✅ 23.8GB/24GB (기적적 성공!!)** |
-
-> **미적용 시 터진 원인:** 사용 중(17.4GB) + 조각난 여유 공간(4.0GB) 상태에서, 4.6GB짜리 거대 로짓 통짜 슬롯을 내놓으라고 하니 쪼개진 방만 남아있어 크래시가 났습니다.
-> **적용 후 성공 원인:** 잘게 쪼개는 것을 막자, Reserved 영역(7.7GB) 내부에 4.6GB 텐서가 너끈히 들어갈 대형 여유 공간이 파편화되지 않고 유지되었습니다. **텐서가 커진 만큼 Reserved 덩치도 2GB에서 7.7GB로 부풀어 올랐지만, 단편화가 없었기에 24GB VRAM 안에 23.8GB까지 한 톨 낭비 없는 완벽한 테트리스가 가능해진 것입니다.**
+- **현재 연산 중인 1개 레이어 분량**만 임시로 bf16으로 풀고, 해당 레이어 계산 완료 후 즉시 해제한다.
+- 전체 모델 크기와 무관하게 **약 0.45 GB (450 MB)**의 고정 임시 공간만 추가된다.
 
 ---
 
-## 5. 결론: 가장 확실한 최종 레시피
+## 4. 이론 메모리 모델
 
-RTX 4090(24GB) 머신 1대로 거대 어휘 사전(15만 개)을 가진 Qwen2.5-7B를 **안정적이고 손실 없이 풀 시퀀스(8192) 길이로 훈련하는 법칙**을 고정합니다.
+### 근사 수식
 
-1. **QLoRA 패러다임 전환 (필수):** 
-   베이스 가중치를 14.2GB → 3.5GB로 소거시킵니다. 어댑터는 부담이 제로(48MB)이므로 `q, k, v, o` 전체 다 열어도 메모리는 터지지 않습니다.
-2. **CUDA 메모리 강제 정렬 스크립트화 (★ 단편화 억제 핵심):** 
-   텐서들이 커질수록 그 텐서를 담아두는 Reserved(여유 풀) 영역의 필수 체급도 커집니다. 그 커진 공간 안에서 파편화가 일어나면 무조건 죽습니다. 환경변수로 예약 공간의 파편화를 원천 차단해야 합니다.
+학습 시 총 할당 메모리(Allocated)는 다음과 같이 근사할 수 있다:
+
+```
+Total_Allocated ≈ W_base + W_adapter + Opt_state + Logits_peak + Act + Dequant + CUDA_ctx
+```
+
+여기서:
+- `W_base`: 모델 가중치 (QLoRA: ~3.5GB, LoRA bf16: ~14.2GB)
+- `W_adapter`: LoRA adapter 가중치 (~10MB)
+- `Opt_state`: optimizer 상태 (~38MB, paged_adamw_8bit 기준)
+- `Logits_peak`: `B × T × V × dtype_size × 2` (forward + backward 동시 상주)
+- `Act`: gradient checkpointing 후 남는 activation
+- `Dequant`: 역양자화 임시 버퍼 (QLoRA 시 ~0.45GB)
+- `CUDA_ctx`: CUDA context, cuBLAS handle 등 (~1.0GB)
+
+### 4096 vs 8192 비교 (QLoRA, B=1)
+
+| 항목                     | QLoRA (seq=4096) | QLoRA (seq=8192) | LoRA bf16 (seq=8192) |
+| :----------------------- | :--------------: | :--------------: | :------------------: |
+| ① 가중치                 |    **3.5 GB**    |    **3.5 GB**    |     **14.2 GB**      |
+| ② LoRA + Optimizer       |     0.05 GB      |     0.05 GB      |       0.05 GB        |
+| ③ Logits & Gradient peak |      4.6 GB      |    **9.2 GB**    |        9.2 GB        |
+| ④ Activations            |      0.9 GB      |      1.9 GB      |        1.9 GB        |
+| ⑤ Dequantize buffer      |     0.45 GB      |     0.45 GB      |         0 GB         |
+| CUDA context 등          |     ~1.0 GB      |     ~1.0 GB      |       ~1.0 GB        |
+| **이론 Allocated 합계**  |   **~10.5 GB**   |   **~16.1 GB**   |     **~26.3 GB**     |
+
+- **LoRA bf16 + seq=8192**: 이론 합계 26.3GB로 24GB를 초과하여 물리적으로 불가능.
+- **QLoRA + seq=8192**: 이론 합계 16.1GB로 여유가 있어 보이지만, **실제로는 allocator reserved 메모리 때문에 OOM이 발생했다.**
+
+> 위 수치는 본 실험 조건에서의 이론 근사치이다.
+> 실제 peak VRAM은 loss 구현, attention backend, optimizer, PyTorch/CUDA 버전에 따라 달라질 수 있다.
+
+---
+
+## 5. 실험 결과
+
+### 5-1. OOM의 원인: Reserved 메모리와 Allocator Fragmentation
+
+이론적 필요량이 16.1GB인데 OOM이 발생하는 이유는, `nvidia-smi`에 표시되는 값이 순수 Allocated가 아니라 **PyTorch allocator의 Reserved 캐시**를 포함하기 때문이다.
+
+**Reserved 메모리의 본질**:
+
+> Reserved 메모리는 PyTorch allocator의 **재사용 캐시**다.
+> PyTorch는 텐서 연산 완료 후 해당 메모리를 OS에 즉시 반환하지 않고, 이후 재사용을 위해 예약(reserve) 상태로 유지한다.
+> 이는 성능 최적화 목적이지만, 특정 할당/해제 패턴에서 **단편화(fragmentation)**가 발생하면, 총 여유량이 충분해도 큰 연속 블록 할당에 실패할 수 있다.
+
+**핵심 관찰**: `seq=8192`에서 logits gradient는 4.6GB 연속 블록을 요구한다. Reserved 영역에 총량은 충분하더라도 단편화로 인해 4.6GB 연속 공간이 확보되지 않으면 OOM이 발생한다.
+
+### 5-2. Allocator 튜닝 결과
+
+fragmentation을 억제하기 위해 다음 환경변수를 적용했다:
 
 ```bash
-# 단편화 방지 환경변수를 주입하고 커맨드라인에서 모듈 실행
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+```
+
+이 설정은 allocator에게 **128 MB를 초과하는 캐시 블록은 분할하지 말고 통째로 유지**하도록 지시한다. 대형 텐서(logits gradient 등)를 위한 연속 공간이 보존된다.
+
+#### seq=4096: allocator 튜닝 효과
+
+이론 Allocated ≈ 10.5 GB. logits gradient 크기: ~2.3 GB.
+
+| 설정                    | nvidia-smi 관찰값 |    Reserved (역산)    |         결과         |
+| :---------------------- | :---------------: | :-------------------: | :------------------: |
+| 기본값 (tuning 없음)    |    **17.1 GB**    | ~6.6 GB (단편화 포함) |  동작하나 낭비 과다  |
+| `max_split_size_mb:128` |    **12.5 GB**    |   ~2.0 GB (정리됨)    | 안정 동작, 대폭 절약 |
+
+동일 조건에서 **약 4.6 GB의 단편화된 캐시가 제거**되었다.
+
+#### seq=8192: allocator 튜닝이 OOM을 해결
+
+이론 Allocated ≈ 16.1 GB. logits gradient 크기: ~4.6 GB.
+
+| 설정                    | nvidia-smi 관찰값 |                              Reserved (역산)                              |     결과      |
+| :---------------------- | :---------------: | :-----------------------------------------------------------------------: | :-----------: |
+| 기본값 (tuning 없음)    | 22~24 GB 벽 충돌  | Allocated 17.4 GB + 단편화 Reserved 4.0 GB에서 4.6 GB 연속 블록 할당 실패 | **OOM 발생**  |
+| `max_split_size_mb:128` |    **23.8 GB**    |                        ~7.7 GB (4.6 GB 블록 유지)                         | **안정 동작** |
+
+> **OOM 원인**: Allocated 17.4 GB 상태에서 단편화된 Reserved 영역(4.0 GB)에 4.6 GB 연속 블록을 할당할 수 없었다.
+> **해결 원인**: 분할을 억제하자 Reserved 7.7 GB 내부에 4.6 GB 연속 공간이 유지되어 24 GB 안에서 23.8 GB까지 활용할 수 있었다.
+
+#### Reserved 확장의 구조적 이유
+
+`seq=4096` → `8192`로 가면 logits 텐서가 2.3 GB → 4.6 GB로 커진다.
+allocator가 이 대형 텐서를 캐싱하려면 Reserved 영역 자체도 비례하여 커져야 한다.
+따라서 `seq=8192`에서 Reserved가 2.0 GB → 7.7 GB로 확장된 것은 구조적으로 예상되는 동작이다.
+
+---
+
+## 6. 원인 분석
+
+본 실험 조건에서 OOM의 주요 원인을 정리하면 다음과 같다.
+
+### 6-1. 대형 Vocab의 Logits 병목
+
+Qwen2.5의 vocab size(152,064)는 일반적인 LLM(32k~64k)에 비해 2~5배 크다.
+logits 메모리는 `B × T × V`에 비례하므로, 동일 seq_length에서도 vocab이 크면 peak가 크게 증가한다.
+backward 시 logits + gradient 동시 상주로 peak가 2배가 되므로, **대형 vocab은 OOM의 지배적 병목**이 되기 쉽다.
+
+### 6-2. 긴 시퀀스의 Activation Peak
+
+`seq=8192`에서는 activation과 logits 모두 선형적으로 증가한다.
+gradient checkpointing으로 activation 증가분은 억제할 수 있으나, logits peak는 이 기법으로 줄일 수 없다.
+
+### 6-3. Allocator Fragmentation
+
+PyTorch CUDA allocator의 기본 동작은 캐시 블록을 필요 시 분할(split)하여 재사용한다.
+학습 루프에서 다양한 크기의 텐서가 반복적으로 할당/해제되면, 캐시 내부에 작은 조각(fragment)만 남아 대형 텐서 할당이 실패할 수 있다.
+
+### 6-4. 구현 의존성
+
+다음 항목들은 실제 peak VRAM에 영향을 주지만, 본 문서에서는 고정 조건으로 다루었다:
+
+- **Loss 계산 구현**: 기본 cross entropy vs fused CE vs chunked CE
+- **Attention backend**: FlashAttention 2 사용 여부
+- **Autocast / mixed precision 동작**: bf16/fp16/tf32 혼합 상태
+- **PyTorch/CUDA 버전**: allocator 동작의 버전별 차이
+- **bitsandbytes 버전**: dequantize 구현의 차이
+
+---
+
+## 7. 해결 전략
+
+### 7-1. 전략 비교표
+
+`seq=8192`, 단일 RTX 4090 24GB 기준:
+
+| 방법                                       |        메모리 절감        |        속도 영향        | 품질 영향 | 비고                        |
+| ------------------------------------------ | :-----------------------: | :---------------------: | :-------: | --------------------------- |
+| **QLoRA (NF4)**                            |       큼 (~10.7 GB)       | 중간 (dequant 오버헤드) |   낮음    | 필수급                      |
+| **Gradient Checkpointing**                 |            큼             |     느려짐 (재계산)     |   없음    | 필수급                      |
+| **Allocator tuning** (`max_split_size_mb`) | 간접 (fragmentation 제거) |          없음           |   없음    | 본 실험에서 OOM 해결의 핵심 |
+| **FlashAttention 2**                       |          중간~큼          |        보통 개선        |   없음    | 긴 시퀀스에서 중요          |
+| micro-batch 1 유지                         |            큼             | 느림 (grad accum 필요)  |   없음    | 이미 적용됨                 |
+| Sequence packing 최적화                    |           중간            |        개선 가능        |   없음    | padding 낭비 감소           |
+| Fused / Chunked CE loss                    |            큼             |        구현 의존        |   없음    | large vocab에 특히 유효     |
+| Completion-only loss                       |           중간            |          동일           | task 의존 | SFT에서 유용                |
+| ZeRO / Offload                             |            큼             |         느려짐          |   없음    | 단일 GPU에서는 타협책       |
+
+### 7-2. 단일 GPU 한계 경계
+
+| 조건                                                  | 기대 결과                           |
+| ----------------------------------------------------- | ----------------------------------- |
+| 24GB / seq=8192 / B=1 / QLoRA / GC / allocator tuning | ✅ 가능 (23.8 GB 사용으로 관찰됨)    |
+| 24GB / seq=8192 / B=1 / LoRA bf16                     | ❌ 불가 (이론 26.3 GB 필요)          |
+| 24GB / seq=8192 / B=2 / QLoRA / GC / allocator tuning | ⚠️ 매우 위험 (logits peak 2배)       |
+| 24GB / seq=16384 / B=1 / QLoRA                        | ❌ 비현실적 (logits peak만 ~18.4 GB) |
+| 24GB / seq=4096 / B=1 / QLoRA / allocator tuning      | ✅ 쾌적 (12.5 GB 사용으로 관찰됨)    |
+
+### 7-3. Logits 경로 최적화 (추가 탐색 가능)
+
+본 문서에서 logits가 핵심 병목으로 관찰되었으므로, logits 메모리를 직접 줄이는 추가 기법들을 정리한다:
+
+- **Fused Cross Entropy**: logits을 full materialization 없이 loss 계산. large vocab에서 효과적.
+- **Chunked / Streaming Loss**: logits를 seq 차원에서 분할 계산하여 peak 감소.
+- **Vocab-parallel / Blockwise Loss**: vocab 차원을 분할하여 동시 상주 크기 감소.
+- **`use_cache=False` 확인**: 학습 시 KV cache를 비활성화하여 불필요한 메모리 사용 방지.
+- **불필요한 full logits 보관 방지**: loss 계산 후 즉시 해제되는지 확인.
+
+이 기법들은 allocator tuning과 독립적으로 적용 가능하며, 특히 `seq=8192` 이상에서 추가 여유를 확보하는 데 유효하다.
+
+---
+
+## 8. 최종 레시피 및 부록
+
+### 8-1. 최종 권장 설정
+
+본 실험 조건에서 가장 안정적으로 동작한 조합:
+
+```bash
+# 1. 단편화 방지 환경변수 설정
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+
+# 2. 학습 실행
 python -m train.run
 ```
 
-이 방식을 통하면 개발자는 24GB의 하드웨어 스펙이라는 극한의 물리적 한계치까지 조금의 낭비도 없이 거대한 문맥 공간(8192 Token Window)을 짜내어 최상급 품질의 Function-Calling AI를 튜닝할 수 있습니다.
+학습 설정 핵심 (`config.py`):
+
+```python
+use_qlora = True               # NF4 4-bit 양자화
+max_seq_length = 8192           # 긴 시퀀스
+batch_size = 1                  # micro batch
+gradient_accumulation_steps = 2 # effective batch = 2
+gradient_checkpointing = True   # activation 메모리 절감
+optim = "paged_adamw_8bit"      # 8-bit paged optimizer
+bf16 = True                    # bfloat16 학습
+```
+
+기대 메모리:
+- nvidia-smi 관찰값: **~23.8 GB / 24 GB**
+- 이론 Allocated: ~16.1 GB
+- Reserved (allocator cache): ~7.7 GB
+
+### 8-2. 검증 실험 프로토콜 (향후 수행용 템플릿)
+
+본 문서의 분석을 가설에서 검증 결과로 발전시키려면, 다음 실험들을 수행할 수 있다.
+
+#### 실험 A — Vocab 크기가 Logits 병목의 원인인지 검증
+
+- 동일 모델, 동일 seq_length, 동일 micro-batch
+- loss 계산 방식만 변경: 기본 CE vs fused CE vs chunked CE
+- 측정: `max_memory_allocated()`, `max_memory_reserved()`, step time
+
+#### 실험 B — Seq Length가 Peak에 미치는 영향 검증
+
+- seq_length를 `2048 / 4096 / 8192`로 변경
+- 나머지 조건 고정
+- 측정: step별 `max_memory_allocated`, `max_memory_reserved`, step time
+
+#### 실험 C — LoRA vs QLoRA 메모리 차이 검증
+
+- 동일 LoRA adapter config (r=8, α=32, target q/k/v/o)
+- base dtype만 변경: bf16 (LoRA) vs NF4 (QLoRA)
+- 측정: 모델 로드 직후 + step 1 완료 후 peak 비교
+
+#### 실험 D — Fragmentation 패턴 검증
+
+- `PYTORCH_CUDA_ALLOC_CONF` 설정 on/off
+- step 1 vs step 50의 peak 비교
+- `torch.cuda.memory_summary()` 저장하여 fragmentation 패턴 분석
+
+### 8-3. OOM 디버깅 체크리스트
+
+OOM 발생 시 순차적으로 확인해야 할 항목:
+
+**측정 기반 진단**:
+- [ ] `torch.cuda.reset_peak_memory_stats()` 호출 후 step 실행
+- [ ] step 단위 `max_memory_allocated()` / `max_memory_reserved()` 기록
+- [ ] `torch.cuda.memory_summary()` 출력 저장 및 분석
+
+**모델/학습 설정 확인**:
+- [ ] `model.config.use_cache = False` 여부
+- [ ] gradient checkpointing 실제 적용 여부 (trainer log에서 확인)
+- [ ] FlashAttention backend 사용 여부
+- [ ] bf16/fp16/autocast 혼합 상태 확인
+- [ ] optimizer가 paged 8-bit인지 확인
+
+**데이터/Loss 경로 확인**:
+- [ ] padding으로 인해 실효 seq_length가 불필요하게 커지지 않았는지 확인
+- [ ] loss 구현이 full logits materialization을 강제하는지 확인
+- [ ] `torch.compile` 사용 시 peak 변화 확인
+- [ ] DataLoader pinned memory / prefetch 영향 분리
+
+**환경 확인**:
+- [ ] `PYTORCH_CUDA_ALLOC_CONF` 환경변수 적용 여부
+- [ ] 다른 GPU 프로세스가 VRAM을 점유하고 있지 않은지 확인
+
+---
+
+## 결론
+
+RTX 4090 24GB 단일 GPU에서 Qwen2.5-7B를 `seq=8192`로 학습할 때, 본 실험 조건에서는 base weight 자체보다도 **large vocab logits**와 backward 시점의 peak memory, 그리고 **allocator fragmentation**이 주요 병목으로 관찰되었다.
+
+QLoRA, gradient checkpointing, 그리고 `PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128` 조합은 해당 환경에서 가장 안정적으로 동작했다.
+
+다만 실제 peak VRAM은 loss 구현, attention backend, optimizer, PyTorch/CUDA 버전에 따라 달라질 수 있으므로, **본 문서의 수치는 절대값이 아니라 재현 가능한 근사치와 분석 프레임**으로 이해하는 것이 적절하다.
