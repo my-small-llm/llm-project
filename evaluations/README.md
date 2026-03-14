@@ -27,7 +27,26 @@ python -m evaluations.runner \
     --inference-only
 ```
 
-### 시나리오 3: 기존 predictions로 스코어링만
+### 시나리오 3: OpenAI API 모델 평가
+
+.env 파일에 OPENAI_API_KEY가 필요하다.
+
+```bash
+# 추론 + 스코어링
+python -m evaluations.api_runner \
+    --model gpt-4o \
+    --dataset eval_data/dataset.jsonl \
+    --output eval_output_api
+
+# 추론만
+python -m evaluations.api_runner \
+    --model gpt-4o \
+    --dataset eval_data/dataset.jsonl \
+    --output eval_output_api \
+    --inference-only
+```
+
+### 시나리오 4: 기존 predictions로 스코어링만
 
 ```bash
 python -m evaluations.scorer \
@@ -36,7 +55,7 @@ python -m evaluations.scorer \
     --output eval_output
 ```
 
-### 시나리오 4: API 모델 결과 스코어링
+### 시나리오 5: 외부 predictions 스코어링
 
 사용자가 predictions.jsonl 포맷에 맞춰 생성한 파일을 스코어링한다.
 
@@ -94,39 +113,69 @@ Step 2  input: [system, user, GT_tc0, GT_tr0, GT_tc1, GT_tr1]  label: "메뉴는
 
 ## 메트릭
 
-### Tool Call Level (분모: 전체 step 수)
+### Tool Call Level
 
 의존 체인 방식으로 평가한다. 앞 단계가 실패하면 뒷 단계의 분모에서 제외된다.
+각 단계의 분모는 이전 단계를 통과한 수이다.
 
-```
-1. Relevance Detection   — tool call 호출 여부 판단
-2. Format Compliance     — JSON 파싱 + name/arguments 필드 존재
-3. Function Matching     — 함수 이름 일치
-4. Param Hallucination   — 스키마에 없는 파라미터 탐지
-5. Required Params       — 필수 파라미터 존재
-6. Argument Type         — 타입 명세 일치
-7. Argument Value        — 값 exact match
-```
+1. relevance_detection_acc
+   tool call이 필요한 상황에서 모델이 tool call을 시도했는지,
+   필요 없는 상황에서 시도하지 않았는지 판단하는 정확도.
+   분모는 전체 샘플 수.
 
-| 메트릭 | 설명 |
-|--------|------|
-| `relevance_detection_acc` | tool call 호출 여부 판단 정확도 |
-| `format_compliance_acc` | `<tool_call>` JSON 구조 유효 비율 |
-| `function_matching_acc` | 함수 이름 일치율 |
-| `param_hallucination_acc` | 스키마에 없는 파라미터를 만들지 않은 비율 |
-| `required_params_acc` | 필수 파라미터를 모두 포함한 비율 |
-| `argument_type_acc` | 타입 명세를 만족한 비율 |
-| `argument_value_acc` | 정답 arguments exact match 비율 |
+2. format_compliance_acc
+   모델이 출력한 tool call의 JSON 형식이 유효한지.
+   <tool_call> 태그 안에 유효한 JSON이 있고 name, arguments 필드가 존재하는지 확인.
+   분모는 1단계를 통과한 tool call 시도 수.
 
-### Turn / Conversation Level (분모: 턴 수 / 대화 수)
+3. function_matching_acc
+   모델이 호출한 함수 이름이 정답과 일치하는지.
+   분모는 2단계를 통과한 수.
 
-| 메트릭 | 설명 |
-|--------|------|
-| `turn_level_accuracy` | 전체 턴 중 pass 비율 |
-| `conversation_success_rate` | 모든 턴이 pass인 대화 비율 (SR) |
-| `conversation_progress_rate` | 대화별 pass 턴 비율의 평균 (PR) |
-| `first_failure_turn_avg` | 첫 실패 턴 인덱스 평균 (-1.0 = 실패 없음) |
-| `error_cascade_rate` | 이전 턴 실패 후 연속 실패 비율 |
+4. param_hallucination_acc
+   모델이 스키마에 정의되지 않은 파라미터를 만들어내지 않았는지.
+   분모는 3단계를 통과한 수 중 스키마가 있는 경우. 스키마가 없으면 N/A.
+
+5. required_params_acc
+   스키마에서 required로 지정된 필수 파라미터를 모두 포함했는지.
+   분모는 4단계를 통과한 수.
+
+6. argument_type_acc
+   파라미터 값의 타입이 스키마 명세와 일치하는지.
+   예: 스키마가 integer인데 문자열 "2"를 넣으면 실패.
+   분모는 5단계를 통과한 수 중 스키마가 있는 경우. 스키마가 없으면 N/A.
+
+7. argument_value_acc
+   파라미터 값이 정답과 정확히 일치하는지 (exact match).
+   함수 구조는 맞지만 값이 다르면 실패. 최종 정확도를 나타낸다.
+   분모는 6단계를 통과한 수.
+
+### Turn / Conversation Level
+
+턴(turn)은 사용자의 실제 발화 1회에 대한 응답 단위이다.
+한 턴 안에 tool call이 여러 개일 수 있다 (sequential call).
+턴의 pass 판정: tool call이 있는 턴은 모든 tool call step이 정답이면 pass,
+tool call이 없는 턴은 모델이 불필요한 tool call을 시도하지 않으면 pass.
+
+- turn_level_accuracy
+  전체 턴 중 pass인 턴의 비율.
+
+- conversation_success_rate
+  모든 턴이 pass인 대화의 비율. 대화 내 턴이 하나라도 fail이면 그 대화는 실패.
+  가장 엄격한 지표.
+
+- conversation_progress_rate
+  각 대화에서 pass한 턴의 비율을 구하고, 그 비율들의 평균.
+  부분 성공도 반영하므로 success_rate보다 관대한 지표.
+
+- first_failure_turn_avg
+  각 대화에서 처음으로 실패한 턴의 인덱스(0부터)를 모아 평균낸 값.
+  값이 낮을수록 대화 초반에 실패한다는 의미. -1.0이면 실패한 대화 없음.
+
+- error_cascade_rate
+  한 턴이 실패한 직후 다음 턴도 실패할 비율.
+  GT History 방식에서 이 값이 높으면 에러 전파가 아니라
+  모델이 특정 대화 패턴 자체에 약하다는 의미.
 
 ---
 
@@ -139,7 +188,8 @@ evaluations/
 ├── multi_turn_metrics.py   # Turn / Conversation Level 집계
 ├── turn_splitter.py        # GT 히스토리 기반 싱글턴 분할
 ├── scorer.py               # predictions.jsonl 기반 독립 스코어링
-└── runner.py               # vLLM 추론 + 평가 실행기
+├── runner.py               # vLLM 추론 + 평가 실행기
+└── api_runner.py           # OpenAI API 추론 + 평가 실행기
 ```
 
 ### `preprocessing.py`
