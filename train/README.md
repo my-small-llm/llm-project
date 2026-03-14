@@ -15,9 +15,7 @@ train/
 ├── run.py                  # 학습 실행 스크립트 (CLI 진입점)
 ├── vram_analysis.md        # VRAM 메모리 분석 문서 (LoRA vs QLoRA 비교)
 ├── data_analysis.ipynb     # 데이터셋 분포 분석 노트북
-├── trl_peft_integration.md # TRL PEFT 통합 가이드 (한글)
-├── trl_sft_trainer.md      # TRL SFT Trainer 가이드 (한글)
-└── trl_quickstart.md       # TRL 빠른 시작 가이드 (한글)
+
 ```
 
 ## 실행 방법
@@ -144,27 +142,3 @@ labels:     -100 (무시)                    -100 (무시)                  -100
 3. 모델 로드 (`QLoRA` 사용 시 NF4 4-bit 양자화 적용)
 4. `ChatMLCollator` + `LoraConfig` + `SFTConfig` 구성
 5. `SFTTrainer.train()` 실행 → `save_model()` 저장
-
-## GPU 메모리 사용량 (RTX 4090, 24GB)
-
-| 방식                  | seq=4096 추정 | seq=4096 실측 |    판정    |
-| --------------------- | :-----------: | :-----------: | :--------: |
-| LoRA (bfloat16)       |   ~21.6 GB    |       —       | ⚠️ OOM 위험 |
-| **QLoRA (NF4 4-bit)** |   ~10.9 GB    | **~16.6 GB**  |   ✅ 안정   |
-
-> 실측이 추정보다 높은 이유: CUDA 캐싱 할당자, Dequantize 임시 버퍼, 드라이버 오버헤드 등.
-> 상세 분석은 `vram_analysis.md`를 참조하세요.
-
-## 의존성
-
-```
-trl, peft, transformers, datasets, bitsandbytes, torch, accelerate
-```
-
-선택사항: `wandb` (학습 로그 시각화)
-
-## 참고 자료
-
-- VRAM 메모리 분석: `train/vram_analysis.md`
-- TRL 공식 문서 (한글): `train/trl_*.md`
-- 원본 노트북: `reference/1. qwen_function_calling_tuning copy.ipynb`

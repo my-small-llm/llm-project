@@ -1,6 +1,8 @@
 """학습 하이퍼파라미터 및 설정을 dataclass로 관리합니다."""
 
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Optional
 
 import torch
@@ -9,51 +11,146 @@ from transformers import BitsAndBytesConfig
 from trl import SFTConfig
 
 
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+
+
+def _load_train_env() -> None:
+    """프로젝트 루트 .env 값을 현재 프로세스 환경변수로 로드합니다."""
+    if not ENV_PATH.exists():
+        return
+
+    for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        os.environ.setdefault(key, value)
+
+
+def _get_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    return int(value) if value is not None else default
+
+
+def _get_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    return float(value) if value is not None else default
+
+
+def _get_str(name: str, default: Optional[str]) -> Optional[str]:
+    return os.getenv(name, default)
+
+
+def _get_list(name: str, default: List[str]) -> List[str]:
+    value = os.getenv(name)
+    if value is None:
+        return list(default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+_load_train_env()
+
+
 @dataclass
 class TrainConfig:
     """Qwen Function-Calling SFT 학습 설정."""
 
     # ── 모델 / 데이터셋 ──────────────────────────────────
-    model_id: str = "Qwen/Qwen2.5-7B-Instruct"
-    dataset_id: str = "jjun123/deliveryapp-traindata-100"
-    output_dir: str = "qwen-2.5-7b-function-calling"
+    model_id: str = field(
+        default_factory=lambda: _get_str("TRAIN_MODEL_ID", "Qwen/Qwen2.5-7B-Instruct")
+    )
+    dataset_id: str = field(
+        default_factory=lambda: _get_str(
+            "TRAIN_DATASET_ID",
+            "jjun123/deliveryapp-traindata-100",
+        )
+    )
+    output_dir: str = field(
+        default_factory=lambda: _get_str(
+            "TRAIN_OUTPUT_DIR",
+            "qwen-2.5-7b-function-calling",
+        )
+    )
 
     # ── 데이터 분할 ──────────────────────────────────────
-    test_ratio: float = 0.2
-    max_seq_length: int = 8192
+    test_ratio: float = field(default_factory=lambda: _get_float("TRAIN_TEST_RATIO", 0.2))
+    max_seq_length: int = field(
+        default_factory=lambda: _get_int("TRAIN_MAX_SEQ_LENGTH", 8192)
+    )
 
     # ── LoRA ─────────────────────────────────────────────
-    lora_r: int = 8
-    lora_alpha: int = 32
-    lora_dropout: float = 0.1
+    lora_r: int = field(default_factory=lambda: _get_int("TRAIN_LORA_R", 8))
+    lora_alpha: int = field(default_factory=lambda: _get_int("TRAIN_LORA_ALPHA", 32))
+    lora_dropout: float = field(
+        default_factory=lambda: _get_float("TRAIN_LORA_DROPOUT", 0.1)
+    )
     lora_target_modules: List[str] = field(
-        default_factory=lambda: ["q_proj", "k_proj", "v_proj", "o_proj"]
+        default_factory=lambda: _get_list(
+            "TRAIN_LORA_TARGET_MODULES",
+            ["q_proj", "k_proj", "v_proj", "o_proj"],
+        )
     )
 
     # ── QLoRA (4-bit 양자화) ─────────────────────────────
-    use_qlora: bool = True
-    bnb_4bit_quant_type: str = "nf4"
-    bnb_4bit_compute_dtype: str = "bfloat16"
-    bnb_4bit_use_double_quant: bool = True
+    use_qlora: bool = field(default_factory=lambda: _get_bool("TRAIN_USE_QLORA", True))
+    bnb_4bit_quant_type: str = field(
+        default_factory=lambda: _get_str("TRAIN_BNB_4BIT_QUANT_TYPE", "nf4")
+    )
+    bnb_4bit_compute_dtype: str = field(
+        default_factory=lambda: _get_str("TRAIN_BNB_4BIT_COMPUTE_DTYPE", "bfloat16")
+    )
+    bnb_4bit_use_double_quant: bool = field(
+        default_factory=lambda: _get_bool("TRAIN_BNB_4BIT_USE_DOUBLE_QUANT", True)
+    )
 
     # ── SFT 학습 ─────────────────────────────────────────
-    num_epochs: int = 3
-    batch_size: int = 1
-    gradient_accumulation_steps: int = 2
-    gradient_checkpointing: bool = True
-    optim: str = "paged_adamw_8bit"
-    learning_rate: float = 1e-4
-    max_grad_norm: float = 0.3
-    warmup_ratio: float = 0.03
-    lr_scheduler_type: str = "constant"
-    bf16: bool = True
+    num_epochs: int = field(default_factory=lambda: _get_int("TRAIN_NUM_EPOCHS", 3))
+    batch_size: int = field(default_factory=lambda: _get_int("TRAIN_BATCH_SIZE", 1))
+    gradient_accumulation_steps: int = field(
+        default_factory=lambda: _get_int("TRAIN_GRADIENT_ACCUMULATION_STEPS", 2)
+    )
+    gradient_checkpointing: bool = field(
+        default_factory=lambda: _get_bool("TRAIN_GRADIENT_CHECKPOINTING", True)
+    )
+    optim: str = field(default_factory=lambda: _get_str("TRAIN_OPTIM", "paged_adamw_8bit"))
+    learning_rate: float = field(
+        default_factory=lambda: _get_float("TRAIN_LEARNING_RATE", 1e-4)
+    )
+    max_grad_norm: float = field(
+        default_factory=lambda: _get_float("TRAIN_MAX_GRAD_NORM", 0.3)
+    )
+    warmup_ratio: float = field(
+        default_factory=lambda: _get_float("TRAIN_WARMUP_RATIO", 0.03)
+    )
+    lr_scheduler_type: str = field(
+        default_factory=lambda: _get_str("TRAIN_LR_SCHEDULER_TYPE", "constant")
+    )
+    bf16: bool = field(default_factory=lambda: _get_bool("TRAIN_BF16", True))
 
     # ── 로깅 / 저장 ─────────────────────────────────────
-    logging_steps: int = 10
-    save_strategy: str = "steps"
-    save_steps: int = 50
-    push_to_hub: bool = False
-    report_to: str = None  # "wandb" 등으로 변경 가능
+    logging_steps: int = field(
+        default_factory=lambda: _get_int("TRAIN_LOGGING_STEPS", 10)
+    )
+    save_strategy: str = field(
+        default_factory=lambda: _get_str("TRAIN_SAVE_STRATEGY", "steps")
+    )
+    save_steps: int = field(default_factory=lambda: _get_int("TRAIN_SAVE_STEPS", 50))
+    push_to_hub: bool = field(
+        default_factory=lambda: _get_bool("TRAIN_PUSH_TO_HUB", False)
+    )
+    report_to: Optional[str] = field(
+        default_factory=lambda: _get_str("TRAIN_REPORT_TO", "wandb")
+    )
 
     # ── 유틸 메서드 ──────────────────────────────────────
 
