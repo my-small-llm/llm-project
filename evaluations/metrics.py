@@ -159,19 +159,21 @@ class EvalResults:
         }
 
     def summary(self) -> str:
-        def _fmt(value: float) -> str:
-            return "N/A" if value == -1.0 else f"{value * 100:.2f}%"
+        def _fmt(acc: float, num: int, den: int) -> str:
+            if acc == -1.0:
+                return "N/A"
+            return f"{acc * 100:.2f}% ({num}/{den})"
 
         return (
             f"[EvalResults] total={self.total_samples} "
             f"(tool_call={self.total_tool_calls}, non_tool_call={self.total_non_tool_calls})\n"
-            f"  relevance_detection_acc: {self.relevance_detection_acc * 100:.2f}%\n"
-            f"  format_compliance_acc:   {self.format_compliance_acc * 100:.2f}%\n"
-            f"  function_matching_acc:   {self.function_matching_acc * 100:.2f}%\n"
-            f"  param_hallucination_acc: {_fmt(self.param_hallucination_acc)}\n"
-            f"  required_params_acc:     {self.required_params_acc * 100:.2f}%\n"
-            f"  argument_type_acc:       {_fmt(self.argument_type_acc)}\n"
-            f"  argument_value_acc:      {self.argument_value_acc * 100:.2f}%"
+            f"  1. relevance_detection_acc: {_fmt(self.relevance_detection_acc, self.relevance_detection_numerator, self.relevance_detection_denominator)} - TC 필요 여부 판단\n"
+            f"  2. format_compliance_acc:   {_fmt(self.format_compliance_acc, self.format_compliance_numerator, self.format_compliance_denominator)} - JSON 형식 유효성\n"
+            f"  3. function_matching_acc:   {_fmt(self.function_matching_acc, self.function_matching_numerator, self.function_matching_denominator)} - 함수명 일치\n"
+            f"  4. param_hallucination_acc: {_fmt(self.param_hallucination_acc, self.param_hallucination_numerator, self.param_hallucination_denominator)} - 스키마 외 파라미터 없음\n"
+            f"  5. required_params_acc:     {_fmt(self.required_params_acc, self.required_params_numerator, self.required_params_denominator)} - 필수 파라미터 포함\n"
+            f"  6. argument_type_acc:       {_fmt(self.argument_type_acc, self.argument_type_numerator, self.argument_type_denominator)} - 파라미터 타입 일치\n"
+            f"  7. argument_value_acc:      {_fmt(self.argument_value_acc, self.argument_value_numerator, self.argument_value_denominator)} - 파라미터 값 일치"
         )
 
 

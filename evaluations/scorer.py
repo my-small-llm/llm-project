@@ -32,15 +32,13 @@ def _group_turn_passes(records: list[dict], step_results) -> list[list[bool]]:
     if not grouped:
         return []
 
-    n_convs = max(grouped.keys()) + 1
     conv_turn_passes = []
 
-    for conv_id in range(n_convs):
+    for conv_id in sorted(grouped.keys()):
         turn_dict = grouped[conv_id]
-        n_turns = max(turn_dict.keys()) + 1
         turn_passes = []
 
-        for turn_idx in range(n_turns):
+        for turn_idx in sorted(turn_dict.keys()):
             steps = [
                 step_result
                 for _, step_result in sorted(turn_dict[turn_idx], key=lambda item: item[0])
