@@ -72,6 +72,15 @@ python -m evaluations.scorer \
     --model gpt-4o
 ```
 
+### 시나리오 6: predictions.jsonl을 가독성 좋은 텍스트로 변환
+
+```bash
+python -m evaluations.convert_readable \
+    --predictions eval_output_api/predictions.jsonl
+```
+
+`--output`을 생략하면 같은 디렉토리에 `predictions_readable.md`로 생성된다.
+
 결과 파일:
 - `eval_output/predictions.jsonl` — 턴별 예측 전체
 - `eval_output/eval_results.json` — 메트릭 전체
@@ -189,7 +198,8 @@ evaluations/
 ├── turn_splitter.py        # GT 히스토리 기반 싱글턴 분할
 ├── scorer.py               # predictions.jsonl 기반 독립 스코어링
 ├── runner.py               # vLLM 추론 + 평가 실행기
-└── api_runner.py           # OpenAI API 추론 + 평가 실행기
+├── api_runner.py           # OpenAI API 추론 + 평가 실행기
+└── convert_readable.py     # predictions.jsonl → 가독성 텍스트 변환
 ```
 
 ### `preprocessing.py`
