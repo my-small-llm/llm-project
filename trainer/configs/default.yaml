@@ -1,0 +1,44 @@
+# 모델
+model_name: "Qwen/Qwen2.5-7B-Instruct"
+
+# 데이터
+dataset_path: "train_data-turn-3-7/dataset.jsonl" # 데이터셋의 jsonl 위치를 입력
+val_ratio: 0.1
+data_seed: 42
+
+# QLoRA
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.1
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+bnb_4bit_quant_type: "nf4"
+
+# 학습
+max_seq_length: 8192
+num_train_epochs: 3
+max_steps: 100             # -1이면 epoch 기준, 양수면 epoch 무시, weight 업데이트 기준
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+learning_rate: 2.0e-4
+lr_scheduler_type: "cosine"
+warmup_ratio: 0.1
+max_grad_norm: 0.3
+optim: "adamw_torch_fused"
+bf16: true
+gradient_checkpointing: true
+
+# save
+output_dir: "outputs/default"
+save_steps: 50
+logging_steps: 5
+
+# validation
+eval_steps: 50
+eval_samples: 10
+eval_seed: 42
+eval_max_new_tokens: 512
+
+# wandb
+wandb_entity: "oh-my-sLM"    # 팀 이름(고정)
+wandb_project: "Qwen2.5-7B-Instruct" # 프로젝트의 이름(고정)
+wandb_run_name: "test_run" # 내가 설정할 이름
