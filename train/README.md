@@ -3,6 +3,9 @@
 Qwen2.5-7B-Instruct 모델을 **QLoRA (4-bit NF4 양자화) + SFT(Supervised Fine-Tuning)**로 학습하는 패키지입니다.
 배달앱 Function-Calling 데이터셋을 사용하여 모델이 도구 호출(tool calling) 응답을 생성하도록 미세조정합니다.
 
+학습 설정은 프로젝트 루트의 [`.env`](/home/cwj/llm-project/.env)에서 읽습니다.
+[`train/config.py`](/home/cwj/llm-project/train/config.py)가 `.env`를 자동 로드하므로, 별도 export 없이 값만 수정해도 됩니다.
+
 ## 디렉토리 구조
 
 ```
@@ -21,12 +24,36 @@ train/
 ## 실행 방법
 
 ```bash
-# uv 가상환경 활성화 상태에서
+# reserved 메모리 단편화로 인한 CUDA OOM 완화
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+
+# uv 가상환경 활성화 상태에서 학습 실행
 python -m train.run
 ```
 
-> 학습 로그는 **Weights & Biases (wandb)**에 자동 기록됩니다.
-> `config.py`에서 `report_to=None`으로 설정하면 비활성화됩니다.
+한 줄로 실행하려면:
+
+```bash
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128 python -m train.run
+```
+
+실행 전에 프로젝트 루트의 [`.env`](/home/cwj/llm-project/.env)를 확인하세요.
+
+```bash
+# 예시
+TRAIN_MODEL_ID=Qwen/Qwen2.5-7B-Instruct
+TRAIN_DATASET_ID=jjun123/deliveryapp-traindata-100
+TRAIN_OUTPUT_DIR=qwen-2.5-7b-function-calling
+TRAIN_REPORT_TO=wandb
+WANDB_PROJECT=deliveryapp-sft
+WANDB_NAME=qwen2.5-7b-lora-run1
+```
+
+학습 로그는 기본적으로 **Weights & Biases (wandb)**에 기록됩니다.
+비활성화하려면 `.env`에서 `TRAIN_REPORT_TO=none`으로 설정하세요.
+
+`Qwen/Qwen2.5-7B-Instruct`를 긴 시퀀스로 학습할 때는 PyTorch allocator의 reserved 메모리 단편화 때문에 OOM이 날 수 있습니다.
+그 경우 위의 `PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128` 설정을 함께 사용하는 것을 권장합니다.
 
 ## 학습 파이프라인 요약
 
@@ -53,6 +80,7 @@ python -m train.run
 ### `config.py` — TrainConfig
 
 모든 학습 관련 설정을 `@dataclass`로 관리합니다.
+기본값은 코드에 내장되어 있지만, 실제 실행 시에는 먼저 [`.env`](/home/cwj/llm-project/.env)의 `TRAIN_*` 값을 읽어 override합니다.
 
 #### 모델 / 데이터셋
 
@@ -61,7 +89,8 @@ python -m train.run
 | `model_id`       | `Qwen/Qwen2.5-7B-Instruct`          | 베이스 모델          |
 | `dataset_id`     | `jjun123/deliveryapp-traindata-100` | HuggingFace 데이터셋 |
 | `output_dir`     | `qwen-2.5-7b-function-calling`      | 체크포인트 저장 경로 |
-| `max_seq_length` | `4096`                              | 최대 시퀀스 길이     |
+| `test_ratio`     | `0.2`                               | test 분할 비율       |
+| `max_seq_length` | `8192`                              | 최대 시퀀스 길이     |
 
 #### QLoRA (4-bit 양자화)
 
@@ -101,10 +130,16 @@ python -m train.run
 | `save_strategy` | `"steps"` | 체크포인트 저장 전략      |
 | `save_steps`    | `50`      | 체크포인트 저장 간격      |
 | `push_to_hub`   | `False`   | HuggingFace Hub 푸시 여부 |
-| `report_to`     | `None`    | 로깅 대상 (`"wandb"` 등)  |
+| `report_to`     | `"wandb"` | 로깅 대상 (`"wandb"`, `"none"` 등) |
 
-> wandb가 설치되어 있으면 자동으로 wandb에 로깅됩니다.
-> 비활성화하려면 `report_to="none"`으로 설정하세요.
+추가로 wandb 관련 환경변수도 [`.env`](/home/cwj/llm-project/.env)에서 관리합니다.
+
+| 환경변수 | 예시 | 설명 |
+| -------- | ---- | ---- |
+| `WANDB_PROJECT` | `deliveryapp-sft` | W&B 프로젝트 이름 |
+| `WANDB_NAME` | `qwen2.5-7b-lora-run1` | 실행(run) 이름 |
+| `WANDB_LOG_MODEL` | `false` | 모델 아티팩트 로깅 여부 |
+| `WANDB_API_KEY` | 선택 | `wandb login` 대신 직접 지정할 때만 사용 |
 
 팩토리 메서드:
 - `get_bnb_config()` → `BitsAndBytesConfig` 반환 (`use_qlora=False`이면 `None`)
@@ -142,3 +177,31 @@ labels:     -100 (무시)                    -100 (무시)                  -100
 3. 모델 로드 (`QLoRA` 사용 시 NF4 4-bit 양자화 적용)
 4. `ChatMLCollator` + `LoraConfig` + `SFTConfig` 구성
 5. `SFTTrainer.train()` 실행 → `save_model()` 저장
+
+## 설정 변경 방법
+
+대부분의 실험 설정은 [`.env`](/home/cwj/llm-project/.env)만 수정하면 됩니다.
+
+```bash
+# 예시: 출력 경로와 학습률 변경
+TRAIN_OUTPUT_DIR=qwen-2.5-7b-function-calling-exp2
+TRAIN_LEARNING_RATE=5e-5
+TRAIN_NUM_EPOCHS=5
+```
+
+대표적으로 조정 가능한 항목:
+- `TRAIN_MODEL_ID`
+- `TRAIN_DATASET_ID`
+- `TRAIN_OUTPUT_DIR`
+- `TRAIN_MAX_SEQ_LENGTH`
+- `TRAIN_USE_QLORA`
+- `TRAIN_BATCH_SIZE`
+- `TRAIN_GRADIENT_ACCUMULATION_STEPS`
+- `TRAIN_LEARNING_RATE`
+- `TRAIN_REPORT_TO`
+
+## wandb 메모
+
+- `TRAIN_REPORT_TO=wandb`이면 wandb 로깅이 활성화됩니다.
+- `wandb login`이 이미 되어 있으면 `WANDB_API_KEY`는 없어도 됩니다.
+- 계정을 강제로 바꾸고 싶을 때만 `.env`에 `WANDB_API_KEY`를 넣으면 됩니다.
