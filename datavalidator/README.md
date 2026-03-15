@@ -4,20 +4,44 @@
 
 ## 실행 방법
 
-### 기본 실행
+### 검증만 수행
 
 ```bash
-python -m datavalidator.validate --target_dir <디렉토리>
+python -m datavalidator.validate --target_dir train_data/samples/
 ```
+
+### 검증 + 실패 샘플 삭제 (--purge)
+
+검증 실패한 .txt 파일과 dataset.jsonl의 대응 레코드를 삭제한다.
+
+```bash
+python -m datavalidator.validate \
+    --target_dir train_data/samples/ \
+    --purge \
+    --dataset train_data/dataset.jsonl
+```
+
+CLI 인수:
+- `--target_dir PATH` : 검증할 .txt 파일이 있는 디렉토리 (필수)
+- `--purge` : 검증 실패 샘플의 .txt 및 dataset.jsonl 레코드 삭제
+- `--dataset PATH` : --purge 시 레코드를 삭제할 dataset.jsonl 경로 (--purge와 함께 사용)
+
+검증 실패가 있으면 exit code 1을 반환한다.
 
 ### 예시
 
 ```bash
-# synthetic_data/samples 디렉토리의 모든 .txt 파일 검증
-python -m datavalidator.validate --target_dir synthetic_data/samples
+# 학습 데이터 검증
+python -m datavalidator.validate --target_dir train_data/samples/
 
-# 절대 경로도 가능
-python -m datavalidator.validate --target_dir /home/khh/workspace/llm-project/synthetic_data/samples
+# 평가 데이터 검증
+python -m datavalidator.validate --target_dir eval_data/samples/
+
+# 학습 데이터 검증 + 실패 샘플 삭제
+python -m datavalidator.validate \
+    --target_dir train_data/samples/ \
+    --purge \
+    --dataset train_data/dataset.jsonl
 ```
 
 ### 출력 예시

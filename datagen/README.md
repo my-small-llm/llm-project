@@ -26,16 +26,16 @@ export OPENAI_API_KEY="sk-..."
 파인튜닝에 사용할 대량의 멀티턴 대화 데이터를 생성하고 HuggingFace Hub에 업로드하는 파이프라인입니다.
 
 ```text
-generate_batch → submit_batch → retrieve_batch → preprocess → render_txt → push_to_hub
+generate_batch → submit_batch → retrieve_batch → preprocess → render_txt → validate → push_to_hub
 ```
 
-### 한 번에 실행 (Step 1~5)
+### 한 번에 실행 (Step 1~6)
 
 ```bash
 bash datagen/run_generate.sh
 ```
 
-`run_generate.sh`는 Step 1~5를 순서대로 실행합니다. `submit_batch`의 폴링 대기가 포함되어 있으므로 배치가 완료될 때까지 자동으로 기다립니다. 파라미터는 스크립트 상단 변수(`COUNT`, `SEED`, `POLL_INTERVAL`)를 직접 수정합니다.
+`run_generate.sh`는 Step 1~6를 순서대로 실행합니다. `submit_batch`의 폴링 대기가 포함되어 있으므로 배치가 완료될 때까지 자동으로 기다립니다. 파라미터는 스크립트 상단 변수(`COUNT`, `SEED`, `POLL_INTERVAL`)를 직접 수정합니다.
 
 ### Step 1. JSONL 입력 파일 생성 (`generate_batch.py`)
 
@@ -197,7 +197,31 @@ CLI 인수:
 <|im_end|>
 ```
 
-### Step 6. HuggingFace Hub 업로드 (`push_to_hub.py`)
+### Step 6. 데이터 유효성 검증 (`datavalidator.validate`)
+
+render_txt로 생성된 ChatML .txt 파일의 형식과 스키마를 검증한다.
+
+```bash
+# 검증만
+python -m datavalidator.validate --target_dir train_data/samples/
+
+# 검증 + 실패 샘플 삭제
+python -m datavalidator.validate \
+    --target_dir train_data/samples/ \
+    --purge \
+    --dataset train_data/dataset.jsonl
+```
+
+CLI 인수:
+- `--target_dir PATH` : 검증할 .txt 파일이 있는 디렉토리 (필수)
+- `--purge` : 검증 실패 샘플의 .txt 및 dataset.jsonl 레코드 삭제
+- `--dataset PATH` : --purge 시 레코드를 삭제할 dataset.jsonl 경로
+
+검증 항목:
+- format: `<|im_start|>`/`<|im_end|>` 페어링, 연속 역할 검사
+- schema: `<tool_call>` JSON 구조, 파라미터 타입 검증
+
+### Step 7. HuggingFace Hub 업로드 (`push_to_hub.py`)
 
 전처리가 완료된 `dataset.jsonl`을 HuggingFace Hub에 업로드합니다.
 
@@ -216,7 +240,7 @@ CLI 인수:
 파인튜닝된 모델의 성능을 벤치마킹하기 위한 별도 파이프라인입니다.
 
 ```text
-generate_gold_batch → submit_batch → retrieve_batch → preprocess → render_txt
+generate_gold_batch → submit_batch → retrieve_batch → preprocess → render_txt → validate
 ```
 
 ### Step 1. 평가용 골드 배치 생성 (`generate_gold_batch.py`)
@@ -289,6 +313,19 @@ python -m datagen.render_txt \
 - 입력: `eval_data/dataset.jsonl`
 - 출력: `eval_data/samples/sample_0001.txt`, `sample_0002.txt`, ...
 
+### Step 6. 데이터 유효성 검증 — 평가용 (`datavalidator.validate`)
+
+```bash
+# 검증만
+python -m datavalidator.validate --target_dir eval_data/samples/
+
+# 검증 + 실패 샘플 삭제
+python -m datavalidator.validate \
+    --target_dir eval_data/samples/ \
+    --purge \
+    --dataset eval_data/dataset.jsonl
+```
+
 ---
 
 ## 설정 관리 (`config.py` & `prompts.py`)
@@ -314,8 +351,8 @@ datagen/
 ├── preprocess.py                # 학습용 Step 4: 파싱 및 jsonl 추출
 ├── render_txt.py                # 학습용 Step 5: dataset.jsonl → 개별 .txt 파일
 ├── push_to_hub.py               # 학습용 Step 6: 데이터셋 허브 업로드
-├── run_generate.sh              # Step 1~5 일괄 실행 스크립트
-├── run_generate_eval.sh         # 평가용 골드 Step 1~5 일괄 실행 스크립트
+├── run_generate.sh              # Step 1~6 일괄 실행 스크립트
+├── run_generate_eval.sh         # 평가용 골드 Step 1~6 일괄 실행 스크립트
 ├── README.md                    # 이 문서
 │
 ├── train_data/                  # 학습용 단계별 출력 파일 (git-ignored)
