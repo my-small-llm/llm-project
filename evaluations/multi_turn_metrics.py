@@ -23,6 +23,11 @@ class MultiTurnResults:
     total_conversations: int = 0
     total_turns: int = 0
 
+    turn_pass_total: int = 0
+    conversation_successes: int = 0
+    cascade_hits: int = 0
+    cascade_opportunities: int = 0
+
     aggregated: EvalResults = field(default_factory=EvalResults)
 
     def to_dict(self) -> dict:
@@ -40,11 +45,11 @@ class MultiTurnResults:
     def summary(self) -> str:
         return (
             f"[MultiTurnResults] conversations={self.total_conversations}, turns={self.total_turns}\n"
-            f"  turn_level_accuracy:       {self.turn_level_accuracy * 100:.2f}%\n"
-            f"  conversation_success_rate: {self.conversation_success_rate * 100:.2f}%\n"
-            f"  conversation_progress_rate:{self.conversation_progress_rate * 100:.2f}%\n"
-            f"  first_failure_turn_avg:    {self.first_failure_turn_avg:.2f}\n"
-            f"  error_cascade_rate:        {self.error_cascade_rate * 100:.2f}%"
+            f"  turn_level_accuracy:       {self.turn_level_accuracy * 100:.2f}% ({self.turn_pass_total}/{self.total_turns}) - 턴 단위 정답률\n"
+            f"  conversation_success_rate: {self.conversation_success_rate * 100:.2f}% ({self.conversation_successes}/{self.total_conversations}) - 대화 전체 성공률\n"
+            f"  conversation_progress_rate:{self.conversation_progress_rate * 100:.2f}% - 대화별 평균 진행률\n"
+            f"  first_failure_turn_avg:    {self.first_failure_turn_avg:.2f} - 첫 실패 턴 평균\n"
+            f"  error_cascade_rate:        {self.error_cascade_rate * 100:.2f}% ({self.cascade_hits}/{self.cascade_opportunities}) - 연속 실패 비율"
         )
 
 
@@ -79,6 +84,7 @@ def evaluate_multi_turn(
 
     for turn_results in conv_turn_passes:
         if not turn_results:
+            progress_rates.append(0.0)
             continue
 
         pass_count = sum(turn_results)
@@ -112,5 +118,9 @@ def evaluate_multi_turn(
         ),
         total_conversations=len(conv_turn_passes),
         total_turns=total_turns,
+        turn_pass_total=turn_pass_total,
+        conversation_successes=conversation_successes,
+        cascade_hits=cascade_hits,
+        cascade_opportunities=cascade_opportunities,
         aggregated=aggregated or EvalResults(),
     )

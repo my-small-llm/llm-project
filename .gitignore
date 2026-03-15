@@ -8,7 +8,9 @@ synthetic_data
 train_data
 eval_data
 eval_output
+eval_output_api
 *anal
+.omc
 
 # Python
 __pycache__/
