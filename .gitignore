@@ -5,12 +5,13 @@ memo.md
 CLAUDE.md
 mini_samples_n55
 synthetic_data
-train_data
+train_data*
 eval_data
 eval_output
 eval_output_api
 *anal
 .omc
+wandb
 
 # Python
 __pycache__/

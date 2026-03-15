@@ -8,9 +8,10 @@
 ```
 dataanalyzer/
 ├── analyze.py     # 분석 로직 및 main() 진입점
-├── __main__.py    # python -m dataanalyzer 실행 지원
-└── output/        # 생성된 분석 결과물 (이미지·텍스트)
+└── __main__.py    # python -m dataanalyzer 실행 지원
 ```
+
+분석 결과물(이미지, 텍스트)은 `--output_dir`로 지정한 디렉토리에 저장된다.
 
 ### `analyze.py`
 
@@ -67,8 +68,8 @@ main()
 
 ```bash
 python -m dataanalyzer.analyze \
-    --target_dir eval_data \
-    --output_dir dataanalyzer/output \
+    --target_dir train_data \
+    --output_dir train_data \
     --model_name Qwen/Qwen2.5-7B-Instruct
 ```
 
@@ -76,8 +77,8 @@ python -m dataanalyzer.analyze \
 
 ```bash
 python -m dataanalyzer \
-    --target_dir eval_data \
-    --output_dir dataanalyzer/output \
+    --target_dir train_data \
+    --output_dir train_data \
     --model_name Qwen/Qwen2.5-7B-Instruct
 ```
 
