@@ -6,9 +6,16 @@
 
 ```bash
 # 필요 패키지
-pip install openai pandas datasets
+pip install openai pandas datasets python-dotenv
+```
 
-# OpenAI API 키 설정
+OpenAI API 키는 프로젝트 루트의 `.env` 파일에 설정하거나 환경변수로 export합니다.
+
+```bash
+# .env 파일 (권장)
+OPENAI_API_KEY=sk-...
+
+# 또는 환경변수
 export OPENAI_API_KEY="sk-..."
 ```
 
@@ -38,6 +45,11 @@ bash datagen/run_generate.sh
 python -m datagen.generate_batch --count 400
 ```
 
+CLI 인수:
+- `--count INT` : 생성할 Batch API 요청 수. 잡담 데이터를 정상 로드한 경우 min(count, 잡담데이터 건수)로 결정. 기본값: 400
+- `--output PATH` : 생성된 JSONL 파일 저장 경로. 기본값: train_data/batch_input.jsonl
+- `--seed INT` : random 시드값. 동일 시드로 샘플링 결과 재현 가능. 기본값: 42
+
 - **API 호출 없이** 로컬에서 파일만 생성합니다.
 - 입력: 없음 (ChatbotData.csv를 원격 URL에서 로드, API 호출 없음)
 - 출력: `train_data/batch_input.jsonl`
@@ -64,6 +76,12 @@ Step 1에서 만든 JSONL 파일을 OpenAI Batch API에 제출합니다.
 python -m datagen.submit_batch --wait
 ```
 
+CLI 인수:
+- `--input PATH` : 업로드할 JSONL 파일 경로. 기본값: train_data/batch_input.jsonl
+- `--output PATH` : 상태 파일 저장 경로. 기본값: 입력 파일과 같은 디렉터리에 {입력파일명}_status.json
+- `--wait` : 배치 완료까지 폴링 대기. 지정하지 않으면 제출 후 즉시 종료
+- `--poll-interval N` : 폴링 간격 (초). 기본값: 60
+
 - 입력: `train_data/batch_input.jsonl`
 - 출력: `train_data/batch_input_status.json`
 
@@ -86,6 +104,13 @@ OpenAI 서버에서 배치 처리가 완료되면 결과 대화 데이터를 다
 python -m datagen.retrieve_batch
 ```
 
+CLI 인수:
+- `--batch-id BATCH_ID` : 배치 ID를 직접 지정. 지정하면 --status-file은 무시됨
+- `--status-file PATH` : 배치 상태 파일 경로. 기본값: train_data/batch_input_status.json
+- `--output PATH` : 결과 저장 경로. 기본값: train_data/result_lst.json
+
+인수 우선순위: --batch-id를 지정하면 status 파일 없이 해당 ID로 직접 조회. 생략 시 --status-file에서 batch_id를 읽음.
+
 - 입력: `train_data/batch_input_status.json` (batch_id 추출)
 - 출력: `train_data/result_lst.json`
 
@@ -103,6 +128,11 @@ python -m datagen.retrieve_batch
 ```bash
 python -m datagen.preprocess
 ```
+
+CLI 인수:
+- `--input PATH` : 배치 결과 JSON 파일 경로. 기본값: train_data/result_lst.json
+- `--output PATH` : 출력 JSONL 파일 경로. 기본값: train_data/dataset.jsonl
+- `--seed INT` : random 시드값. 시스템 프롬프트 내 도구 순서 셔플에 사용. 기본값: 42
 
 - 입력: `train_data/result_lst.json`
 - 출력: `train_data/dataset.jsonl`
@@ -132,8 +162,11 @@ python -m datagen.preprocess
 
 ```bash
 python -m datagen.render_txt
-# --input 생략 시 train_data/dataset.jsonl 자동 사용
 ```
+
+CLI 인수:
+- `--input PATH` : 입력 JSONL 파일 경로. 기본값: train_data/dataset.jsonl
+- `--output PATH` : 출력 디렉토리 경로. 기본값: 입력 파일과 같은 폴더의 samples/
 
 - 입력: `train_data/dataset.jsonl`
 - 출력: `train_data/samples/sample_0001.txt`, `sample_0002.txt`, ...
@@ -172,6 +205,10 @@ python -m datagen.render_txt
 python -m datagen.push_to_hub --input train_data/dataset.jsonl --repo-id "your-hf-account/delivery-dataset"
 ```
 
+CLI 인수:
+- `--input PATH` : 업로드할 로컬 데이터 파일 경로. 기본값: train_data/dataset.jsonl
+- `--repo-id TEXT` : HuggingFace Hub 리포 이름 (필수). 예: "my-org/dataset-name"
+
 ---
 
 ## 평가용 골드 데이터 생성 파이프라인
@@ -200,6 +237,11 @@ generate_gold_batch → submit_batch → retrieve_batch → preprocess → rende
 ```bash
 python -m datagen.generate_gold_batch
 ```
+
+CLI 인수:
+- `--output PATH` : 생성된 JSONL 파일 저장 경로. 기본값: eval_data/gold_batch_input.jsonl
+- `--seed INT` : random 시드값. USER_IDS 샘플링 결과 재현용. 기본값: 42
+- `--count INT` : 카테고리당 생성 개수. 지정하면 모든 카테고리의 count를 이 값으로 덮어씀. 미지정 시 각 카테고리 기본값 사용
 
 - 출력: `eval_data/gold_batch_input.jsonl`
 

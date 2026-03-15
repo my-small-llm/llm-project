@@ -2,7 +2,7 @@
 로컬에 저장된 전처리된 데이터셋(parquet 등)을 HuggingFace Hub에 업로드합니다.
 
 사용법:
-    python -m datagen.push_to_hub --input datagen/output/dataset.jsonl --repo-id REPO_NAME
+    python -m datagen.push_to_hub --input train_data/dataset.jsonl --repo-id REPO_NAME
 """
 
 import argparse
@@ -20,7 +20,7 @@ def main():
         "--input",
         type=str,
         default=None,
-        help="업로드할 로컬 데이터 파일 경로 (기본값: datagen/output/dataset.jsonl)",
+        help="업로드할 로컬 데이터 파일 경로 (기본값: train_data/dataset.jsonl)",
     )
     parser.add_argument(
         "--repo-id",
@@ -32,7 +32,7 @@ def main():
 
     # 경로 설정
     if args.input is None:
-        input_path = Path(__file__).parent / "output" / "dataset.jsonl"
+        input_path = Path(__file__).parent.parent / "train_data" / "dataset.jsonl"
     else:
         input_path = Path(args.input)
         if not input_path.is_absolute():

@@ -5,12 +5,12 @@
     python -m datagen.generate_gold_batch [--output PATH] [--seed N] [--count N]
 
 출력:
-    datagen/output/gold_batch_input.jsonl
+    eval_data/gold_batch_input.jsonl
 
 CLI 인수:
     --output PATH  생성된 JSONL 파일의 저장 경로.
                    지정하지 않으면 스크립트 위치 기준으로
-                   datagen/output/gold_batch_input.jsonl 에 저장됩니다.
+                   eval_data/gold_batch_input.jsonl 에 저장됩니다.
                    부모 디렉터리가 없으면 자동으로 생성합니다.
 
     --seed   INT   random 모듈의 시드값.
@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default=None,
-        help="출력 파일 경로 (기본값: datagen/output/gold_batch_input.jsonl)",
+        help="출력 파일 경로 (기본값: eval_data/gold_batch_input.jsonl)",
     )
     parser.add_argument(
         "--seed",
@@ -95,7 +95,7 @@ def main():
     args = parse_args()
 
     if args.output is None:
-        output_path = Path(__file__).parent / "output" / "gold_batch_input.jsonl"
+        output_path = Path(__file__).parent.parent / "eval_data" / "gold_batch_input.jsonl"
     else:
         output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,7 +115,7 @@ def main():
 
     print(f"[완료] 총 {total_count}건의 평가용 골드 요청을 {output_path}에 저장했습니다.")
     print(f"[파일 크기] {output_path.stat().st_size / 1024:.1f} KB")
-    print(f"[힌트] 배치 제출: python -m datagen.submit_batch --input datagen/output/gold_batch_input.jsonl")
+    print(f"[힌트] 배치 제출: python -m datagen.submit_batch --input eval_data/gold_batch_input.jsonl")
 
 
 if __name__ == "__main__":
