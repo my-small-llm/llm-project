@@ -5,7 +5,7 @@ OpenAI Batch API용 JSONL 입력 파일 생성.
     python -m datagen.generate_batch [--count N] [--output PATH] [--seed N]
 
 출력:
-    datagen/output/batch_input.jsonl
+    train_data/batch_input.jsonl
 
 CLI 인수:
     --count  INT   생성할 Batch API 요청 수.
@@ -17,7 +17,7 @@ CLI 인수:
 
     --output PATH  생성된 JSONL 파일의 저장 경로.
                    지정하지 않으면 스크립트 위치 기준으로
-                   datagen/output/batch_input.jsonl 에 저장됩니다.
+                   train_data/batch_input.jsonl 에 저장됩니다.
                    부모 디렉터리가 없으면 자동으로 생성합니다.
 
     --seed   INT   random 모듈의 시드값.
@@ -123,7 +123,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default=None,
-        help="출력 파일 경로 (기본값: datagen/output/batch_input.jsonl)",
+        help="출력 파일 경로 (기본값: train_data/batch_input.jsonl)",
     )
     parser.add_argument(
         "--seed",
@@ -139,7 +139,7 @@ def main():
 
     # 출력 경로 설정
     if args.output is None:
-        output_path = Path(__file__).parent / "output" / "batch_input.jsonl"
+        output_path = Path(__file__).parent.parent / "train_data" / "batch_input.jsonl"
     else:
         output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

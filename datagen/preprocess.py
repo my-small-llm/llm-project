@@ -5,14 +5,14 @@
     python -m datagen.preprocess [--input PATH] [--output PATH] [--seed N]
 
 출력:
-    datagen/output/dataset.jsonl
+    train_data/dataset.jsonl
 
 CLI 인수:
     --input  PATH  배치 결과 JSON 파일 경로.
-                   지정하지 않으면 datagen/output/result_lst.json을 사용합니다.
+                   지정하지 않으면 train_data/result_lst.json을 사용합니다.
 
     --output PATH  출력 JSONL 파일 경로.
-                   지정하지 않으면 datagen/output/dataset.jsonl에 저장합니다.
+                   지정하지 않으면 train_data/dataset.jsonl에 저장합니다.
                    부모 디렉터리가 없으면 자동으로 생성합니다.
 
     --seed   INT   random 모듈의 시드값.
@@ -215,13 +215,13 @@ def parse_args() -> argparse.Namespace:
         "--input",
         type=str,
         default=None,
-        help="결과 JSON 경로 (기본값: datagen/output/result_lst.json)",
+        help="결과 JSON 경로 (기본값: train_data/result_lst.json)",
     )
     parser.add_argument(
         "--output",
         type=str,
         default=None,
-        help="출력 JSONL 경로 (기본값: datagen/output/dataset.jsonl)",
+        help="출력 JSONL 경로 (기본값: train_data/dataset.jsonl)",
     )
     parser.add_argument(
         "--seed",
@@ -237,12 +237,12 @@ def main():
 
     # 경로 설정
     if args.input is None:
-        input_path = Path(__file__).parent / "output" / "result_lst.json"
+        input_path = Path(__file__).parent.parent / "train_data" / "result_lst.json"
     else:
         input_path = Path(args.input)
 
     if args.output is None:
-        output_path = Path(__file__).parent / "output" / "dataset.jsonl"
+        output_path = Path(__file__).parent.parent / "train_data" / "dataset.jsonl"
     else:
         output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

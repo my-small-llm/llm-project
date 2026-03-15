@@ -97,9 +97,60 @@ def print_results(results: list[FileResult]) -> None:
     print(f"결과: {total}개 파일 중 {valid}개 통과, {invalid}개 실패")
 
 
+def _extract_sample_index(path: Path) -> int | None:
+    """sample_0001.txt → 0 (0-indexed)"""
+    stem = path.stem
+    if stem.startswith("sample_"):
+        try:
+            return int(stem.replace("sample_", "")) - 1
+        except ValueError:
+            return None
+    return None
+
+
+def purge_failed(
+    results: list[FileResult],
+    dataset_path: Path,
+) -> int:
+    """검증 실패한 샘플의 .txt와 dataset.jsonl 레코드를 삭제한다."""
+    failed = [r for r in results if not r.is_valid]
+    if not failed:
+        print("[purge] 삭제할 실패 샘플 없음")
+        return 0
+
+    # dataset.jsonl 로드
+    import json
+
+    with open(dataset_path, encoding="utf-8") as f:
+        records = [json.loads(line) for line in f if line.strip()]
+
+    # 삭제할 인덱스 수집
+    indices_to_remove = set()
+    for r in failed:
+        idx = _extract_sample_index(r.path)
+        if idx is not None and idx < len(records):
+            indices_to_remove.add(idx)
+
+    # dataset.jsonl에서 레코드 제거
+    remaining = [rec for i, rec in enumerate(records) if i not in indices_to_remove]
+    with open(dataset_path, "w", encoding="utf-8") as f:
+        for rec in remaining:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+    # .txt 파일 삭제
+    for r in failed:
+        r.path.unlink(missing_ok=True)
+
+    removed = len(indices_to_remove)
+    print(f"[purge] {removed}개 레코드 삭제 (dataset.jsonl: {len(records)} → {len(remaining)})")
+    return removed
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="생성된 학습 데이터 유효성 검증")
     parser.add_argument("--target_dir", required=True, help="검증할 .txt 파일이 있는 디렉토리")
+    parser.add_argument("--purge", action="store_true", help="검증 실패 샘플의 .txt 및 dataset.jsonl 레코드 삭제")
+    parser.add_argument("--dataset", default=None, help="--purge 시 레코드를 삭제할 dataset.jsonl 경로")
     args = parser.parse_args()
 
     target = Path(args.target_dir)
@@ -107,9 +158,24 @@ def main() -> None:
         print(f"[오류] 디렉토리를 찾을 수 없습니다: {target}")
         raise SystemExit(1)
 
+    if args.purge and not args.dataset:
+        print("[오류] --purge 사용 시 --dataset 경로를 지정해야 합니다.")
+        raise SystemExit(1)
+
     print(f"검증 시작: {target.resolve()}\n")
     results = validate_directory(target)
     print_results(results)
+
+    if args.purge:
+        dataset_path = Path(args.dataset)
+        if not dataset_path.exists():
+            print(f"[오류] dataset 파일을 찾을 수 없습니다: {dataset_path}")
+            raise SystemExit(1)
+        purge_failed(results, dataset_path)
+
+    # 실패가 있으면 exit code 1
+    if any(not r.is_valid for r in results):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

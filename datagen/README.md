@@ -6,9 +6,16 @@
 
 ```bash
 # 필요 패키지
-pip install openai pandas datasets
+pip install openai pandas datasets python-dotenv
+```
 
-# OpenAI API 키 설정
+OpenAI API 키는 프로젝트 루트의 `.env` 파일에 설정하거나 환경변수로 export합니다.
+
+```bash
+# .env 파일 (권장)
+OPENAI_API_KEY=sk-...
+
+# 또는 환경변수
 export OPENAI_API_KEY="sk-..."
 ```
 
@@ -19,16 +26,16 @@ export OPENAI_API_KEY="sk-..."
 파인튜닝에 사용할 대량의 멀티턴 대화 데이터를 생성하고 HuggingFace Hub에 업로드하는 파이프라인입니다.
 
 ```text
-generate_batch → submit_batch → retrieve_batch → preprocess → render_txt → push_to_hub
+generate_batch → submit_batch → retrieve_batch → preprocess → render_txt → validate → push_to_hub
 ```
 
-### 한 번에 실행 (Step 1~5)
+### 한 번에 실행 (Step 1~6)
 
 ```bash
 bash datagen/run_generate.sh
 ```
 
-`run_generate.sh`는 Step 1~5를 순서대로 실행합니다. `submit_batch`의 폴링 대기가 포함되어 있으므로 배치가 완료될 때까지 자동으로 기다립니다. 파라미터는 스크립트 상단 변수(`COUNT`, `SEED`, `POLL_INTERVAL`)를 직접 수정합니다.
+`run_generate.sh`는 Step 1~6를 순서대로 실행합니다. `submit_batch`의 폴링 대기가 포함되어 있으므로 배치가 완료될 때까지 자동으로 기다립니다. 파라미터는 스크립트 상단 변수(`COUNT`, `SEED`, `POLL_INTERVAL`)를 직접 수정합니다.
 
 ### Step 1. JSONL 입력 파일 생성 (`generate_batch.py`)
 
@@ -37,6 +44,11 @@ bash datagen/run_generate.sh
 ```bash
 python -m datagen.generate_batch --count 400
 ```
+
+CLI 인수:
+- `--count INT` : 생성할 Batch API 요청 수. 잡담 데이터를 정상 로드한 경우 min(count, 잡담데이터 건수)로 결정. 기본값: 400
+- `--output PATH` : 생성된 JSONL 파일 저장 경로. 기본값: train_data/batch_input.jsonl
+- `--seed INT` : random 시드값. 동일 시드로 샘플링 결과 재현 가능. 기본값: 42
 
 - **API 호출 없이** 로컬에서 파일만 생성합니다.
 - 입력: 없음 (ChatbotData.csv를 원격 URL에서 로드, API 호출 없음)
@@ -64,6 +76,12 @@ Step 1에서 만든 JSONL 파일을 OpenAI Batch API에 제출합니다.
 python -m datagen.submit_batch --wait
 ```
 
+CLI 인수:
+- `--input PATH` : 업로드할 JSONL 파일 경로. 기본값: train_data/batch_input.jsonl
+- `--output PATH` : 상태 파일 저장 경로. 기본값: 입력 파일과 같은 디렉터리에 {입력파일명}_status.json
+- `--wait` : 배치 완료까지 폴링 대기. 지정하지 않으면 제출 후 즉시 종료
+- `--poll-interval N` : 폴링 간격 (초). 기본값: 60
+
 - 입력: `train_data/batch_input.jsonl`
 - 출력: `train_data/batch_input_status.json`
 
@@ -86,6 +104,13 @@ OpenAI 서버에서 배치 처리가 완료되면 결과 대화 데이터를 다
 python -m datagen.retrieve_batch
 ```
 
+CLI 인수:
+- `--batch-id BATCH_ID` : 배치 ID를 직접 지정. 지정하면 --status-file은 무시됨
+- `--status-file PATH` : 배치 상태 파일 경로. 기본값: train_data/batch_input_status.json
+- `--output PATH` : 결과 저장 경로. 기본값: train_data/result_lst.json
+
+인수 우선순위: --batch-id를 지정하면 status 파일 없이 해당 ID로 직접 조회. 생략 시 --status-file에서 batch_id를 읽음.
+
 - 입력: `train_data/batch_input_status.json` (batch_id 추출)
 - 출력: `train_data/result_lst.json`
 
@@ -103,6 +128,11 @@ python -m datagen.retrieve_batch
 ```bash
 python -m datagen.preprocess
 ```
+
+CLI 인수:
+- `--input PATH` : 배치 결과 JSON 파일 경로. 기본값: train_data/result_lst.json
+- `--output PATH` : 출력 JSONL 파일 경로. 기본값: train_data/dataset.jsonl
+- `--seed INT` : random 시드값. 시스템 프롬프트 내 도구 순서 셔플에 사용. 기본값: 42
 
 - 입력: `train_data/result_lst.json`
 - 출력: `train_data/dataset.jsonl`
@@ -132,8 +162,11 @@ python -m datagen.preprocess
 
 ```bash
 python -m datagen.render_txt
-# --input 생략 시 train_data/dataset.jsonl 자동 사용
 ```
+
+CLI 인수:
+- `--input PATH` : 입력 JSONL 파일 경로. 기본값: train_data/dataset.jsonl
+- `--output PATH` : 출력 디렉토리 경로. 기본값: 입력 파일과 같은 폴더의 samples/
 
 - 입력: `train_data/dataset.jsonl`
 - 출력: `train_data/samples/sample_0001.txt`, `sample_0002.txt`, ...
@@ -164,13 +197,41 @@ python -m datagen.render_txt
 <|im_end|>
 ```
 
-### Step 6. HuggingFace Hub 업로드 (`push_to_hub.py`)
+### Step 6. 데이터 유효성 검증 (`datavalidator.validate`)
+
+render_txt로 생성된 ChatML .txt 파일의 형식과 스키마를 검증한다.
+
+```bash
+# 검증만
+python -m datavalidator.validate --target_dir train_data/samples/
+
+# 검증 + 실패 샘플 삭제
+python -m datavalidator.validate \
+    --target_dir train_data/samples/ \
+    --purge \
+    --dataset train_data/dataset.jsonl
+```
+
+CLI 인수:
+- `--target_dir PATH` : 검증할 .txt 파일이 있는 디렉토리 (필수)
+- `--purge` : 검증 실패 샘플의 .txt 및 dataset.jsonl 레코드 삭제
+- `--dataset PATH` : --purge 시 레코드를 삭제할 dataset.jsonl 경로
+
+검증 항목:
+- format: `<|im_start|>`/`<|im_end|>` 페어링, 연속 역할 검사
+- schema: `<tool_call>` JSON 구조, 파라미터 타입 검증
+
+### Step 7. HuggingFace Hub 업로드 (`push_to_hub.py`)
 
 전처리가 완료된 `dataset.jsonl`을 HuggingFace Hub에 업로드합니다.
 
 ```bash
 python -m datagen.push_to_hub --input train_data/dataset.jsonl --repo-id "your-hf-account/delivery-dataset"
 ```
+
+CLI 인수:
+- `--input PATH` : 업로드할 로컬 데이터 파일 경로. 기본값: train_data/dataset.jsonl
+- `--repo-id TEXT` : HuggingFace Hub 리포 이름 (필수). 예: "my-org/dataset-name"
 
 ---
 
@@ -179,7 +240,7 @@ python -m datagen.push_to_hub --input train_data/dataset.jsonl --repo-id "your-h
 파인튜닝된 모델의 성능을 벤치마킹하기 위한 별도 파이프라인입니다.
 
 ```text
-generate_gold_batch → submit_batch → retrieve_batch → preprocess → render_txt
+generate_gold_batch → submit_batch → retrieve_batch → preprocess → render_txt → validate
 ```
 
 ### Step 1. 평가용 골드 배치 생성 (`generate_gold_batch.py`)
@@ -200,6 +261,11 @@ generate_gold_batch → submit_batch → retrieve_batch → preprocess → rende
 ```bash
 python -m datagen.generate_gold_batch
 ```
+
+CLI 인수:
+- `--output PATH` : 생성된 JSONL 파일 저장 경로. 기본값: eval_data/gold_batch_input.jsonl
+- `--seed INT` : random 시드값. USER_IDS 샘플링 결과 재현용. 기본값: 42
+- `--count INT` : 카테고리당 생성 개수. 지정하면 모든 카테고리의 count를 이 값으로 덮어씀. 미지정 시 각 카테고리 기본값 사용
 
 - 출력: `eval_data/gold_batch_input.jsonl`
 
@@ -247,6 +313,19 @@ python -m datagen.render_txt \
 - 입력: `eval_data/dataset.jsonl`
 - 출력: `eval_data/samples/sample_0001.txt`, `sample_0002.txt`, ...
 
+### Step 6. 데이터 유효성 검증 — 평가용 (`datavalidator.validate`)
+
+```bash
+# 검증만
+python -m datavalidator.validate --target_dir eval_data/samples/
+
+# 검증 + 실패 샘플 삭제
+python -m datavalidator.validate \
+    --target_dir eval_data/samples/ \
+    --purge \
+    --dataset eval_data/dataset.jsonl
+```
+
 ---
 
 ## 설정 관리 (`config.py` & `prompts.py`)
@@ -272,8 +351,8 @@ datagen/
 ├── preprocess.py                # 학습용 Step 4: 파싱 및 jsonl 추출
 ├── render_txt.py                # 학습용 Step 5: dataset.jsonl → 개별 .txt 파일
 ├── push_to_hub.py               # 학습용 Step 6: 데이터셋 허브 업로드
-├── run_generate.sh              # Step 1~5 일괄 실행 스크립트
-├── run_generate_eval.sh         # 평가용 골드 Step 1~5 일괄 실행 스크립트
+├── run_generate.sh              # Step 1~6 일괄 실행 스크립트
+├── run_generate_eval.sh         # 평가용 골드 Step 1~6 일괄 실행 스크립트
 ├── README.md                    # 이 문서
 │
 ├── train_data/                  # 학습용 단계별 출력 파일 (git-ignored)

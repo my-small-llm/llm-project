@@ -2,8 +2,8 @@
 
 사용법:
     python -m dataanalyzer.analyze \\
-        --target_dir eval_data \\
-        --output_dir dataanalyzer/output \\
+        --target_dir train_data \\
+        --output_dir train_data \\
         --model_name Qwen/Qwen2.5-7B-Instruct
 """
 from __future__ import annotations
