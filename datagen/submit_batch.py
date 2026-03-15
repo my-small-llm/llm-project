@@ -6,13 +6,13 @@ OpenAI Batch API 배치 제출 및 상태 확인.
 
 출력:
     입력 파일명을 기반으로 자동 결정됩니다.
-    예) batch_input.jsonl      → datagen/output/batch_input_status.json
-        gold_batch_input.jsonl → datagen/output/gold_batch_input_status.json
+    예) batch_input.jsonl      → train_data/batch_input_status.json
+        gold_batch_input.jsonl → eval_data/gold_batch_input_status.json
 
 CLI 인수:
     --input PATH        업로드할 JSONL 파일 경로.
                         지정하지 않으면 스크립트 위치 기준으로
-                        datagen/output/batch_input.jsonl 을 사용합니다.
+                        train_data/batch_input.jsonl 을 사용합니다.
 
     --output PATH       상태 파일 저장 경로.
                         지정하지 않으면 입력 파일과 같은 디렉터리에
@@ -30,7 +30,10 @@ import json
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
 import openai
+
+load_dotenv()
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,7 +44,7 @@ def parse_args() -> argparse.Namespace:
         "--input",
         type=str,
         default=None,
-        help="업로드할 JSONL 파일 경로 (기본값: datagen/output/batch_input.jsonl)",
+        help="업로드할 JSONL 파일 경로 (기본값: train_data/batch_input.jsonl)",
     )
     parser.add_argument(
         "--output",
@@ -68,7 +71,7 @@ def main():
 
     # 입력 경로 설정
     if args.input is None:
-        input_path = Path(__file__).parent / "output" / "batch_input.jsonl"
+        input_path = Path(__file__).parent.parent / "train_data" / "batch_input.jsonl"
     else:
         input_path = Path(args.input)
 

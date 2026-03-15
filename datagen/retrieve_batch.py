@@ -5,7 +5,7 @@
     python -m datagen.retrieve_batch [--batch-id BATCH_ID] [--status-file PATH] [--output PATH]
 
 출력:
-    datagen/output/result_lst.json  (생성된 대화 텍스트 목록)
+    train_data/result_lst.json  (생성된 대화 텍스트 목록)
 
 CLI 인수:
     --batch-id BATCH_ID   배치 ID를 직접 지정합니다.
@@ -15,12 +15,12 @@ CLI 인수:
     --status-file PATH    배치 상태 파일 경로.
                           --batch-id 가 지정된 경우에는 사용되지 않습니다.
                           지정하지 않으면 스크립트 위치 기준으로
-                          datagen/output/batch_input_status.json 을 사용합니다.
+                          train_data/batch_input_status.json 을 사용합니다.
                           예) gold_batch_input.jsonl 제출 시
-                              --status-file datagen/output/gold_batch_input_status.json
+                              --status-file eval_data/gold_batch_input_status.json
 
     --output PATH         결과 저장 경로.
-                          기본값: datagen/output/result_lst.json
+                          기본값: train_data/result_lst.json
 
 인수 우선순위:
     --batch-id 지정  →  status 파일 없이 해당 ID로 직접 결과를 조회합니다.
@@ -32,7 +32,10 @@ import argparse
 import json
 from pathlib import Path
 
+from dotenv import load_dotenv
 import openai
+
+load_dotenv()
 
 
 def main():
@@ -49,25 +52,25 @@ def main():
         "--status-file",
         type=str,
         default=None,
-        help="배치 상태 파일 경로 (기본값: datagen/output/batch_input_status.json)",
+        help="배치 상태 파일 경로 (기본값: train_data/batch_input_status.json)",
     )
     parser.add_argument(
         "--output",
         type=str,
         default=None,
-        help="결과 저장 경로 (기본값: datagen/output/result_lst.json)",
+        help="결과 저장 경로 (기본값: train_data/result_lst.json)",
     )
     args = parser.parse_args()
 
     # 출력 경로 설정
     if args.output is None:
-        output_path = Path(__file__).parent / "output" / "result_lst.json"
+        output_path = Path(__file__).parent.parent / "train_data" / "result_lst.json"
     else:
         output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if args.status_file is None:
-        status_path = Path(__file__).parent / "output" / "batch_input_status.json"
+        status_path = Path(__file__).parent.parent / "train_data" / "batch_input_status.json"
     else:
         status_path = Path(args.status_file)
     client = openai.OpenAI()
