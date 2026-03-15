@@ -27,7 +27,19 @@ python -m evaluations.runner \
     --inference-only
 ```
 
-### 시나리오 3: OpenAI API 모델 평가
+### 시나리오 3: LoRA 어댑터 적용 평가
+
+```bash
+python -m evaluations.runner \
+    --model Qwen/Qwen2.5-7B-Instruct \
+    --lora outputs/default \
+    --dataset eval_data/dataset.jsonl \
+    --output eval_output_lora
+```
+
+`--lora`에 학습된 LoRA 어댑터 경로를 지정하면 베이스 모델에 LoRA를 적용하여 추론한다.
+
+### 시나리오 4: OpenAI API 모델 평가
 
 .env 파일에 OPENAI_API_KEY가 필요하다.
 
@@ -46,7 +58,7 @@ python -m evaluations.api_runner \
     --inference-only
 ```
 
-### 시나리오 4: 기존 predictions로 스코어링만
+### 시나리오 5: 기존 predictions로 스코어링만
 
 ```bash
 python -m evaluations.scorer \
@@ -55,7 +67,7 @@ python -m evaluations.scorer \
     --output eval_output
 ```
 
-### 시나리오 5: 외부 predictions 스코어링
+### 시나리오 6: 외부 predictions 스코어링
 
 사용자가 predictions.jsonl 포맷에 맞춰 생성한 파일을 스코어링한다.
 
