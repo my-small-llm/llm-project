@@ -84,6 +84,7 @@ def _run_vllm_inference(
         model=model_name,
         trust_remote_code=True,
         enable_lora=lora_path is not None,
+        max_lora_rank=128,
     )
     sampling_params = SamplingParams(
         temperature=0.0,
