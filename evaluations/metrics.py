@@ -54,6 +54,30 @@ def _normalize_schema(tool_schemas: dict | None, function_name: str) -> dict | N
     return tool_schemas.get(function_name)
 
 
+def _fill_defaults(args: dict, schema: dict | None) -> dict:
+    """생략된 파라미터에 스키마의 기본값을 채워 API가 실제로 받는 상태를 재현한다.
+
+    - 스키마에 default가 정의된 파라미터가 args에 없으면 default 값을 채움
+    - required가 아닌 파라미터가 args에 없으면 None으로 채움
+    """
+    if schema is None:
+        return dict(args)
+
+    properties = schema.get("properties") or {}
+    required = set(schema.get("required") or [])
+    filled = dict(args)
+
+    for key, prop in properties.items():
+        if key in filled:
+            continue
+        if "default" in prop:
+            filled[key] = prop["default"]
+        elif key not in required:
+            filled[key] = None
+
+    return filled
+
+
 def _expected_python_type(type_name: str):
     return {
         "string": str,
@@ -67,6 +91,10 @@ def _expected_python_type(type_name: str):
 
 def _matches_type(value, type_name: str | None) -> bool:
     if type_name is None:
+        return True
+
+    # None은 optional 파라미터의 "값 미지정"을 의미하므로 허용
+    if value is None:
         return True
 
     expected = _expected_python_type(type_name)
@@ -246,8 +274,10 @@ def evaluate_function_call_step(
         if not step.type_pass:
             return step
 
-    # Value는 정답 경로 exact match를 요구한다.
-    step.value_pass = pred_args == label_args
+    # Value: 양쪽에 기본값을 채운 뒤 exact match로 비교한다.
+    norm_label = _fill_defaults(label_args, schema)
+    norm_pred = _fill_defaults(pred_args, schema)
+    step.value_pass = norm_pred == norm_label
     return step
 
 
