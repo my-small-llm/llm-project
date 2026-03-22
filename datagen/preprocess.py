@@ -242,7 +242,7 @@ def main():
         input_path = Path(args.input)
 
     if args.output is None:
-        output_path = Path(__file__).parent.parent / "train_data" / "dataset.jsonl"
+        output_path = input_path.parent / "dataset.jsonl"
     else:
         output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -29,14 +29,6 @@ export OPENAI_API_KEY="sk-..."
 generate_batch → submit_batch → retrieve_batch → preprocess → render_txt → validate → push_to_hub
 ```
 
-### 한 번에 실행 (Step 1~6)
-
-```bash
-bash datagen/run_generate.sh
-```
-
-`run_generate.sh`는 Step 1~6를 순서대로 실행합니다. `submit_batch`의 폴링 대기가 포함되어 있으므로 배치가 완료될 때까지 자동으로 기다립니다. 파라미터는 스크립트 상단 변수(`COUNT`, `SEED`, `POLL_INTERVAL`)를 직접 수정합니다.
-
 ### Step 1. JSONL 입력 파일 생성 (`generate_batch.py`)
 
 지정된 개수만큼의 대화 요청 시나리오를 생성하여, OpenAI Batch API가 이해할 수 있는 JSONL 형태로 파일을 생성합니다.
@@ -351,8 +343,6 @@ datagen/
 ├── preprocess.py                # 학습용 Step 4: 파싱 및 jsonl 추출
 ├── render_txt.py                # 학습용 Step 5: dataset.jsonl → 개별 .txt 파일
 ├── push_to_hub.py               # 학습용 Step 6: 데이터셋 허브 업로드
-├── run_generate.sh              # Step 1~6 일괄 실행 스크립트
-├── run_generate_eval.sh         # 평가용 골드 Step 1~6 일괄 실행 스크립트
 ├── README.md                    # 이 문서
 │
 ├── train_data/                  # 학습용 단계별 출력 파일 (git-ignored)

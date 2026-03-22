@@ -84,7 +84,42 @@ python -m evaluations.scorer \
     --model gpt-4o
 ```
 
-### 시나리오 6: predictions.jsonl을 가독성 좋은 텍스트로 변환
+`--model`은 스코어링 로직에 영향을 주지 않는다.
+`eval_results.json`과 `eval_results.csv`에 모델명을 메타데이터로 기록하여,
+여러 모델의 결과를 비교할 때 식별용으로 사용한다.
+
+### 시나리오 7: 메트릭 코드 변경 전후 비교
+
+메트릭 코드를 수정한 뒤 효과를 정확히 측정하려면,
+동일한 predictions에 대해 스코어링만 재실행해야 한다.
+추론을 다시 수행하면 GPU 비결정성으로 prediction이 달라질 수 있다.
+
+```bash
+# 1. 추론 1회 실행 + predictions 저장 (seed 고정)
+python -m evaluations.runner \
+    --model Qwen/Qwen2.5-7B-Instruct \
+    --dataset eval_data/dataset.jsonl \
+    --output eval_output \
+    --inference-only \
+    --seed 42
+
+# 2. 수정 전 코드로 스코어링
+python -m evaluations.scorer \
+    --predictions eval_output/predictions.jsonl \
+    --dataset eval_data/dataset.jsonl \
+    --output eval_output_before
+
+# 3. 메트릭 코드 수정 후 동일 predictions로 스코어링
+python -m evaluations.scorer \
+    --predictions eval_output/predictions.jsonl \
+    --dataset eval_data/dataset.jsonl \
+    --output eval_output_after
+```
+
+이렇게 하면 1~5단계(relevance ~ required_params)는 동일하고,
+변경된 단계의 수치만 달라지므로 순수 메트릭 코드 효과를 비교할 수 있다.
+
+### 시나리오 8: predictions.jsonl을 가독성 좋은 텍스트로 변환
 
 ```bash
 python -m evaluations.convert_readable \

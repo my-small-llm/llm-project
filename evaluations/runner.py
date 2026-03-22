@@ -62,6 +62,7 @@ def _run_vllm_inference(
     model_name: str,
     max_new_tokens: int = 512,
     lora_path: str | None = None,
+    seed: int = 42,
 ) -> list[str]:
     """
     vLLM을 사용해 batch 추론을 수행한다.
@@ -84,11 +85,14 @@ def _run_vllm_inference(
         model=model_name,
         trust_remote_code=True,
         enable_lora=lora_path is not None,
+        max_lora_rank=128,
+        seed=seed,
     )
     sampling_params = SamplingParams(
         temperature=0.0,
         max_tokens=max_new_tokens,
         stop=["<|im_end|>"],
+        seed=seed,
     )
 
     lora_request = None
@@ -118,6 +122,7 @@ def run_evaluation(
     max_new_tokens: int = 512,
     inference_only: bool = False,
     lora_path: str | None = None,
+    seed: int = 42,
 ) -> None:
     """
     전체 평가 파이프라인 실행.
@@ -155,7 +160,7 @@ def run_evaluation(
     prompts = [_build_chatml_prompt(inp.messages) for inp in inference_inputs]
     if lora_path:
         print(f"  LoRA 어댑터: {lora_path}")
-    predictions = _run_vllm_inference(prompts, model_name, max_new_tokens, lora_path=lora_path)
+    predictions = _run_vllm_inference(prompts, model_name, max_new_tokens, lora_path=lora_path, seed=seed)
     print(f"  추론 완료: {len(predictions)}개 예측")
 
     # 3. 예측 저장
@@ -222,6 +227,12 @@ def main():
         default=None,
         help="LoRA 어댑터 경로 (지정하면 베이스 모델에 LoRA를 적용하여 추론)",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="추론 재현성을 위한 랜덤 시드 (기본값: 42)",
+    )
     args = parser.parse_args()
 
     run_evaluation(
@@ -231,6 +242,7 @@ def main():
         max_new_tokens=args.max_new_tokens,
         inference_only=args.inference_only,
         lora_path=args.lora,
+        seed=args.seed,
     )
 
 
