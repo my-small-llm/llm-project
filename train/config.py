@@ -84,6 +84,7 @@ class TrainConfig:
 
     # ── 데이터 분할 ──────────────────────────────────────
     test_ratio: float = field(default_factory=lambda: _get_float("TRAIN_TEST_RATIO", 0.2))
+    data_seed: int = field(default_factory=lambda: _get_int("TRAIN_DATA_SEED", 42))
     max_seq_length: int = field(
         default_factory=lambda: _get_int("TRAIN_MAX_SEQ_LENGTH", 8192)
     )
@@ -141,10 +142,17 @@ class TrainConfig:
     logging_steps: int = field(
         default_factory=lambda: _get_int("TRAIN_LOGGING_STEPS", 10)
     )
+    eval_strategy: str = field(
+        default_factory=lambda: _get_str("TRAIN_EVAL_STRATEGY", "steps")
+    )
+    eval_steps: int = field(default_factory=lambda: _get_int("TRAIN_EVAL_STEPS", 50))
     save_strategy: str = field(
         default_factory=lambda: _get_str("TRAIN_SAVE_STRATEGY", "steps")
     )
     save_steps: int = field(default_factory=lambda: _get_int("TRAIN_SAVE_STEPS", 50))
+    load_best_model_at_end: bool = field(
+        default_factory=lambda: _get_bool("TRAIN_LOAD_BEST_MODEL_AT_END", True)
+    )
     push_to_hub: bool = field(
         default_factory=lambda: _get_bool("TRAIN_PUSH_TO_HUB", False)
     )
@@ -180,11 +188,12 @@ class TrainConfig:
 
     def get_sft_config(self) -> SFTConfig:
         """SFTConfig 객체를 반환합니다."""
-        return SFTConfig(
+        sft_config = SFTConfig(
             output_dir=self.output_dir,
             max_seq_length=self.max_seq_length,
             num_train_epochs=self.num_epochs,
             per_device_train_batch_size=self.batch_size,
+            per_device_eval_batch_size=self.batch_size,
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             gradient_checkpointing=self.gradient_checkpointing,
             optim=self.optim,
@@ -201,3 +210,45 @@ class TrainConfig:
             dataset_kwargs={"skip_prepare_dataset": True},
             report_to=self.report_to,
         )
+        if hasattr(sft_config, "eval_strategy"):
+            sft_config.eval_strategy = self.eval_strategy
+        elif hasattr(sft_config, "evaluation_strategy"):
+            sft_config.evaluation_strategy = self.eval_strategy
+        sft_config.eval_steps = self.eval_steps
+        sft_config.load_best_model_at_end = self.load_best_model_at_end
+        sft_config.metric_for_best_model = "eval_loss"
+        sft_config.greater_is_better = False
+        return sft_config
+
+    def to_metadata_dict(self) -> dict:
+        """평가/추적용 학습 메타데이터를 핵심 하이퍼파라미터 중심으로 반환합니다."""
+        return {
+            "model_id": self.model_id,
+            "dataset_id": self.dataset_id,
+            "test_ratio": self.test_ratio,
+            "data_seed": self.data_seed,
+            "max_seq_length": self.max_seq_length,
+            "use_qlora": self.use_qlora,
+            "bnb_4bit_quant_type": self.bnb_4bit_quant_type,
+            "bnb_4bit_compute_dtype": self.bnb_4bit_compute_dtype,
+            "bnb_4bit_use_double_quant": self.bnb_4bit_use_double_quant,
+            "lora_r": self.lora_r,
+            "lora_alpha": self.lora_alpha,
+            "lora_dropout": self.lora_dropout,
+            "lora_target_modules": self.lora_target_modules,
+            "num_epochs": self.num_epochs,
+            "batch_size": self.batch_size,
+            "gradient_accumulation_steps": self.gradient_accumulation_steps,
+            "gradient_checkpointing": self.gradient_checkpointing,
+            "optim": self.optim,
+            "learning_rate": self.learning_rate,
+            "max_grad_norm": self.max_grad_norm,
+            "warmup_ratio": self.warmup_ratio,
+            "lr_scheduler_type": self.lr_scheduler_type,
+            "bf16": self.bf16,
+            "eval_strategy": self.eval_strategy,
+            "eval_steps": self.eval_steps,
+            "save_strategy": self.save_strategy,
+            "save_steps": self.save_steps,
+            "load_best_model_at_end": self.load_best_model_at_end,
+        }
