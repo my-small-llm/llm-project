@@ -188,7 +188,7 @@ tools = [
                 },
                 "min_rating": {
                     "type": "number",
-                    "description": "최소 평점 필터 (0.0 ~ 5.0)"
+                    "description": "고객이 '4.5 이상', '최소 4.3'처럼 숫자 기준을 명시한 경우에만 사용하는 최소 평점 필터입니다. '평점 높은 곳'처럼 모호한 표현만 있으면 이 파라미터는 생략합니다."
                 },
                 "only_open": {
                     "type": "boolean",

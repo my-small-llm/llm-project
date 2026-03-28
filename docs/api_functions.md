@@ -17,7 +17,7 @@ async def search_restaurants(
     *,
     query: Optional[str] = None,       # 식당명 또는 메뉴명 검색
     category: Optional[str] = None,    # restaurants.category 문자열 필터
-    min_rating: Optional[float] = None,# 최소 평점 (restaurants.rating_avg)
+    min_rating: Optional[float] = None,# 숫자 기준이 명시된 경우에만 사용하는 최소 평점
     only_open: bool = False,           # '영업 중만'이 명시된 경우에만 true 사용
     sort: str = "rating",              # 정렬 요청이 있을 때만 명시, 기본은 백엔드 rating
 ) -> dict  # Page 구조 반환
@@ -25,6 +25,9 @@ async def search_restaurants(
 
 ### 호출 규약
 
+- 사용자가 `4.5 이상`, `최소 4.3`, `4점 넘는 곳`처럼 숫자 기준을 명시한 경우에만 `min_rating`을 사용합니다.
+- 사용자가 `평점 높은 곳`, `별점 좋은 곳`처럼 모호하게 말한 경우에는 `min_rating`을 호출 인자에서 생략하는 것을 기본 규약으로 합니다.
+- 즉 `min_rating=None`을 명시적으로 생성하기보다, `숫자 기준이 있을 때만 사용하고 아니면 생략`하는 것이 권장됩니다.
 - 사용자가 `영업 중`, `지금 열려 있는`, `문 연 곳만`처럼 명시한 경우에만 `only_open=True`를 사용합니다.
 - 사용자가 영업 여부를 명시하지 않은 경우에는 `only_open`을 호출 인자에서 생략하는 것을 기본 규약으로 합니다.
 - 즉 `only_open=False`를 모델이 적극적으로 생성하는 것보다, `True 또는 생략`의 2상태로 다루는 것이 권장됩니다.
@@ -49,7 +52,6 @@ await search_restaurants(
 await search_restaurants(
     query="콜라",
     category=None,
-    min_rating=None,
 )
 ```
 

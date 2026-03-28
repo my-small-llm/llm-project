@@ -122,7 +122,7 @@ async def search_restaurants(
     Args:
         query: 음식점 이름 또는 메뉴 키워드
         category: 음식 카테고리 필터 (예: "피자", "한식")
-        min_rating: 최소 평점 필터 (0.0 ~ 5.0)
+        min_rating: 사용자가 4.5 이상처럼 숫자 기준을 직접 말했을 때만 사용하는 최소 평점 필터
         only_open: 사용자가 '영업 중인 곳만'을 명시한 경우에만 True를 사용
         sort: 사용자가 정렬 기준을 명시했을 때만 사용하는 값. 생략 시 백엔드 기본은 "rating"
 
