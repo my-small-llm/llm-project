@@ -19,7 +19,7 @@ async def search_restaurants(
     category: Optional[str] = None,    # restaurants.category 문자열 필터
     min_rating: Optional[float] = None,# 최소 평점 (restaurants.rating_avg)
     only_open: bool = False,           # '영업 중만'이 명시된 경우에만 true 사용
-    sort: str = "relevance",           # 정렬 기준 ('relevance' | 'rating' | 'delivery_fee')
+    sort: str = "rating",              # 정렬 요청이 있을 때만 명시, 기본은 백엔드 rating
 ) -> dict  # Page 구조 반환
 ```
 
@@ -28,6 +28,9 @@ async def search_restaurants(
 - 사용자가 `영업 중`, `지금 열려 있는`, `문 연 곳만`처럼 명시한 경우에만 `only_open=True`를 사용합니다.
 - 사용자가 영업 여부를 명시하지 않은 경우에는 `only_open`을 호출 인자에서 생략하는 것을 기본 규약으로 합니다.
 - 즉 `only_open=False`를 모델이 적극적으로 생성하는 것보다, `True 또는 생략`의 2상태로 다루는 것이 권장됩니다.
+- 사용자가 `평점순`, `별점 높은 순`, `배달비 낮은 순`, `관련도순`처럼 정렬 기준을 명시한 경우에만 `sort`를 사용합니다.
+- 사용자가 정렬 기준을 명시하지 않은 경우에는 `sort`를 호출 인자에서 생략하는 것을 기본 규약으로 합니다.
+- 정렬 기준을 생략한 경우 백엔드는 기본적으로 `rating` 기준으로 결과를 반환합니다.
 
 ### 사용 예시
 
@@ -47,7 +50,6 @@ await search_restaurants(
     query="콜라",
     category=None,
     min_rating=None,
-    sort="relevance",
 )
 ```
 

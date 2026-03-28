@@ -115,7 +115,7 @@ async def search_restaurants(
     category: Optional[str] = None,
     min_rating: Optional[float] = None,
     only_open: bool = False,
-    sort: str = "relevance",
+    sort: str = "rating",
 ) -> SearchRestaurantsResponse:
     """음식점을 검색/필터/정렬하여 반환합니다.
 
@@ -124,7 +124,7 @@ async def search_restaurants(
         category: 음식 카테고리 필터 (예: "피자", "한식")
         min_rating: 최소 평점 필터 (0.0 ~ 5.0)
         only_open: 사용자가 '영업 중인 곳만'을 명시한 경우에만 True를 사용
-        sort: 정렬 기준 ("relevance" | "rating" | "delivery_fee")
+        sort: 사용자가 정렬 기준을 명시했을 때만 사용하는 값. 생략 시 백엔드 기본은 "rating"
 
     Returns:
         items: 음식점 요약 목록 (restaurant_id, name, category, rating_avg, is_open, min_order_amount)

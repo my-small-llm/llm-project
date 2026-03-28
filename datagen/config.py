@@ -197,8 +197,8 @@ tools = [
                 },
                 "sort": {
                     "type": "string",
-                    "description": "정렬 기준 ('relevance' | 'rating' | 'delivery_fee')",
-                    "default": "relevance"
+                    "description": "고객이 평점순, 관련도순, 배달비 낮은 순처럼 정렬 기준을 명시한 경우에만 사용합니다. 정렬을 특정하지 않으면 이 파라미터는 생략하며, 백엔드는 기본적으로 별점 높은 순으로 반환합니다.",
+                    "default": "rating"
                 }
             },
             "required": [],

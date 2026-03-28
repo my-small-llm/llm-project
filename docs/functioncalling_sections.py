@@ -18,11 +18,12 @@ user_id = df_users.iloc[0]["id"]
 # ----------------------------------------------------------------
 
 def search_restaurants(query=None, category=None, min_rating=None,
-                       only_open=False, sort="relevance"):
+                       only_open=False, sort="rating"):
     """
     음식점을 검색/필터/정렬하여 반환합니다.
     검색 결과는 항상 1페이지부터 고정된 개수만 반환합니다.
     only_open은 사용자가 영업 중인 곳만 요청한 경우에만 True로 사용합니다.
+    sort는 사용자가 정렬 기준을 명시한 경우에만 사용하며, 기본 정렬은 rating입니다.
     """
     page = 1
     page_size = 20
@@ -56,6 +57,8 @@ def search_restaurants(query=None, category=None, min_rating=None,
     # 정렬
     if sort == "rating":
         result = result.sort_values("rating_avg", ascending=False)
+    elif sort == "delivery_fee":
+        result = result.sort_values("delivery_fee", ascending=True)
 
     # 백엔드 고정 페이지네이션
     total_items = len(result)
