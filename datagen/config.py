@@ -192,7 +192,7 @@ tools = [
                 },
                 "only_open": {
                     "type": "boolean",
-                    "description": "true이면 현재 영업 중인 식당만 반환",
+                    "description": "고객이 '영업 중인 곳만', '지금 열려 있는 곳만'처럼 명시적으로 요청한 경우에만 true를 사용합니다. 영업 여부를 특정하지 않으면 이 파라미터는 생략합니다.",
                     "default": False
                 },
                 "sort": {

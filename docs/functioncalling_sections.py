@@ -22,6 +22,7 @@ def search_restaurants(query=None, category=None, min_rating=None,
     """
     음식점을 검색/필터/정렬하여 반환합니다.
     검색 결과는 항상 1페이지부터 고정된 개수만 반환합니다.
+    only_open은 사용자가 영업 중인 곳만 요청한 경우에만 True로 사용합니다.
     """
     page = 1
     page_size = 20

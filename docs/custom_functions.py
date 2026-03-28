@@ -123,7 +123,7 @@ async def search_restaurants(
         query: 음식점 이름 또는 메뉴 키워드
         category: 음식 카테고리 필터 (예: "피자", "한식")
         min_rating: 최소 평점 필터 (0.0 ~ 5.0)
-        only_open: True이면 현재 영업 중인 음식점만 반환
+        only_open: 사용자가 '영업 중인 곳만'을 명시한 경우에만 True를 사용
         sort: 정렬 기준 ("relevance" | "rating" | "delivery_fee")
 
     Returns:
