@@ -37,6 +37,9 @@ _UUID_RE = re.compile(
 _TOOL_CALL_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
 _TOOL_RESPONSE_RE = re.compile(r"<tool_response>\s*(.*?)\s*</tool_response>", re.DOTALL)
 _NUMBER_RE = re.compile(r"\d+\.?\d*")
+_JOSA_RE = re.compile(
+    r"(으로|에서|까지|부터|처럼|보다|에게|한테|로|를|은|는|이|가|만|도|에|의|와|과)$"
+)
 
 DEFAULTS = {
     "sort": "relevance",
@@ -45,8 +48,8 @@ DEFAULTS = {
 }
 
 SORT_KEYWORDS: dict[str, list[str]] = {
-    "rating": ["평점", "별점", "높은 순", "높은순", "평점순", "별점순"],
-    "delivery_fee": ["배달비", "배달료", "싼 순", "싼순", "저렴", "배달비순"],
+    "rating": ["평점", "별점", "높은 순", "높은순", "평점순", "별점순", "맛집", "잘하는", "리뷰", "인기", "많이 먹는", "점수"],
+    "delivery_fee": ["배달비", "배달료", "싼 순", "싼순", "저렴", "배달비순", "싼거", "싸게", "싼", "저렴한", "비싸면", "비싼", "배달 빠른", "배달빠른"],
     "relevance": ["관련", "관련성", "관련순"],
 }
 
@@ -100,13 +103,15 @@ def _collect_available_ids(blocks: list[Block], up_to_index: int) -> set[str]:
 
 
 def _get_preceding_user_message(blocks: list[Block], assistant_idx: int) -> str:
-    """해당 assistant 블록 직전의 사용자 일반 발화(tool_response 제외)를 반환한다."""
+    """해당 assistant 블록을 트리거한 사용자 일반 발화(tool_response 제외)를 반환한다.
+
+    tool_call 체인(assistant→tool_response→assistant→...)의 중간 블록도
+    거슬러 올라가 원래 사용자 발화를 찾는다.
+    """
     for i in range(assistant_idx - 1, -1, -1):
         b = blocks[i]
         if b.role == "user" and "<tool_response>" not in b.content:
             return b.content
-        if b.role == "assistant":
-            break
     return ""
 
 
@@ -182,7 +187,11 @@ def _check_single_call(
         val = args["special_request"]
         keywords = [w for w in val.split() if len(w) >= 2]
         match_count = sum(1 for kw in keywords if kw in user_msg or kw in all_prior_msgs)
-        if keywords and match_count == 0:
+        # 공백 제거 + 조사 제거 매칭 (띄어쓰기/조사 변형 대응)
+        nospace_msgs = user_msg.replace(" ", "") + "\n" + all_prior_msgs.replace(" ", "")
+        stripped_kws = [_JOSA_RE.sub("", kw.replace(" ", "")) for kw in keywords]
+        nospace_match = any(sk in nospace_msgs for sk in stripped_kws if len(sk) >= 2)
+        if keywords and match_count == 0 and not nospace_match:
             errors.append(_err(
                 "special_request", val,
                 f"사용자 발화에서 관련 내용을 찾을 수 없음",
