@@ -42,7 +42,7 @@ _JOSA_RE = re.compile(
 )
 
 DEFAULTS = {
-    "sort": "relevance",
+    "sort": "rating",
     "only_open": False,
     "is_default": False,
 }
