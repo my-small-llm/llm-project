@@ -12,6 +12,7 @@ from datavalidator.rules.schema import (
     extract_called_func_name,
     SchemaError,
 )
+from datavalidator.rules.content import check_inferability, ContentError
 from datavalidator.utils import load_text, parse_blocks
 
 
@@ -20,14 +21,15 @@ class FileResult:
     path: Path
     format_errors: list[FormatError] = field(default_factory=list)
     schema_errors: list[SchemaError] = field(default_factory=list)
+    content_errors: list[ContentError] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
-        return not self.format_errors and not self.schema_errors
+        return not self.format_errors and not self.schema_errors and not self.content_errors
 
     @property
     def error_count(self) -> int:
-        return len(self.format_errors) + len(self.schema_errors)
+        return len(self.format_errors) + len(self.schema_errors) + len(self.content_errors)
 
 
 def validate_file(path: Path) -> FileResult:
@@ -67,6 +69,9 @@ def validate_file(path: Path) -> FileResult:
             if "<tool_response>" in block.content:
                 last_called_func = None
 
+    # Rule 4: 사용자 발화 기반 추론 불가 파라미터(환각) 탐지
+    result.content_errors = check_inferability(blocks)
+
     return result
 
 
@@ -91,6 +96,8 @@ def print_results(results: list[FileResult]) -> None:
             for e in r.format_errors:
                 print(f"         [format] token#{e.token_index}: {e.message}")
             for e in r.schema_errors:
+                print(f"         [{e.rule}] block#{e.block_index} L{e.line_start}: {e.message}")
+            for e in r.content_errors:
                 print(f"         [{e.rule}] block#{e.block_index} L{e.line_start}: {e.message}")
 
     print()
