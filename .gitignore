@@ -62,5 +62,12 @@ datagen/output
 wandb/
 
 # checkpoints
-qwen-2.5-7b-function-calling
-qwen-2.5-7b-function-calling_4096
+trained_models
+
+#eval output
+eval_output_500_2batch_3ep
+eval_output_500_2batch_3ep_highLR
+eval_output_500_32batch_10ep
+eval_output_my_model
+eval_output_batch32-10ep
+eval_output_500_32batch_10ep_before

@@ -200,6 +200,17 @@ TRAIN_NUM_EPOCHS=5
 - `TRAIN_LEARNING_RATE`
 - `TRAIN_REPORT_TO`
 
+## 참고할 학습 계획
+
+| eff batch | LR     | LoRA rank (r) | alpha | max_grad_norm | epoch | 왜 이렇게 설정하나 (핵심 이유) |
+| --------- | ------ | ------------- | ----- | ------------- | ----- | ------------------------------ |
+| 1         | 2.5e-4 | 64            | 32    | 0.7           | 3     | batch가 매우 작아 noise가 큼 → LR을 크게 해서 학습 진행 속도 확보 / noise로 튀는 step 많으므로 clipping 완화(0.7) / rank는 capacity 유지용 (noise 환경에서 rank 영향 거의 없음) |
+| 2         | 2e-4   | 64            | 32    | 0.5           | 4     | 여전히 noisy → LR 높게 유지 / batch=1보다 안정적이라 clipping 약간 강화 / alpha로 update scale 확보 / 빠른 수렴용 |
+| 4         | 1.5e-4 | 64            | 32    | 0.5           | 5     | noise 감소 시작 → LR 줄여 overshoot 방지 / 아직 exploration 필요해서 alpha 유지 / clipping 안정 유지 |
+| 8         | 1.2e-4 | 64            | 64    | 0.5           | 6     | gradient 안정화 → LR 더 낮춤 / 대신 alpha 증가로 update scale 보정 / rank는 그대로 (성능 영향 적음) |
+| 16        | 1e-4   | 64            | 64    | 0.5           | 8     | 안정적인 gradient → LR standard 값 / alpha로 충분한 update 확보 / clipping 안정 유지 / production baseline |
+| 32        | 8e-5   | 64            | 64    | 0.7           | 10    | gradient 거의 deterministic → LR 낮춰 정밀 수렴 / batch 커서 update 약해지므로 alpha 유지 / 긴 학습 필요 / 드물게 큰 grad 나올 수 있어 clipping 완화 |
+
 ## wandb 메모
 
 - `TRAIN_REPORT_TO=wandb`이면 wandb 로깅이 활성화됩니다.
