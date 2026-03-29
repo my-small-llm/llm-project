@@ -212,6 +212,7 @@ CLI 인수:
 검증 항목:
 - format: `<|im_start|>`/`<|im_end|>` 페어링, 연속 역할 검사
 - schema: `<tool_call>` JSON 구조, 파라미터 타입 검증
+- content: 사용자 발화 기반 추론 불가 파라미터(환각) 탐지
 
 ### Step 7. HuggingFace Hub 업로드 (`push_to_hub.py`)
 
@@ -277,7 +278,8 @@ python -m datagen.submit_batch \
 
 ```bash
 python -m datagen.retrieve_batch \
-    --status-file eval_data/gold_batch_input_status.json
+    --status-file eval_data/gold_batch_input_status.json \
+    --output eval_data/result_lst.json
 ```
 
 - 입력: `eval_data/gold_batch_input_status.json`
@@ -340,6 +342,7 @@ datagen/
 ├── generate_gold_batch.py       # 평가용 Step 1: 골드 데이터(80건) JSONL 생성
 ├── submit_batch.py              # Step 2: 배치 제출 (학습·평가 공용)
 ├── retrieve_batch.py            # Step 3: 결과 다운로드 (학습·평가 공용)
+├── retry_failed_batch.py        # 실패한 배치 요청 재추출
 ├── preprocess.py                # 학습용 Step 4: 파싱 및 jsonl 추출
 ├── render_txt.py                # 학습용 Step 5: dataset.jsonl → 개별 .txt 파일
 ├── push_to_hub.py               # 학습용 Step 6: 데이터셋 허브 업로드
