@@ -32,10 +32,15 @@ import argparse
 import json
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency
+    load_dotenv = None
+
 import openai
 
-load_dotenv()
+if load_dotenv is not None:
+    load_dotenv()
 
 
 def main():
@@ -98,6 +103,8 @@ def main():
         print("[힌트] `python -m datagen.submit_batch --wait`로 대기하거나 나중에 다시 실행하세요.")
         return
 
+    error_file_id = batch.error_file_id
+
     # ── 결과 다운로드 ──
     print(f"[2/3] 결과 파일 다운로드 중: {batch.output_file_id}")
     result_content = client.files.content(batch.output_file_id)
@@ -158,12 +165,19 @@ def main():
             json.dump(errors, f, ensure_ascii=False, indent=2)
         print(f"  → 에러 로그: {error_path}")
 
+    if error_file_id:
+        batch_error_path = output_path.parent / f"{output_path.stem}_request_errors.jsonl"
+        error_content = client.files.content(error_file_id)
+        batch_error_path.write_text(error_content.text, encoding="utf-8")
+        print(f"  → 배치 요청 실패 로그: {batch_error_path}")
+
     # batch_status.json 업데이트
     if status_path.exists():
         with open(status_path, "r", encoding="utf-8") as f:
             status_info = json.load(f)
         status_info["status"] = "completed"
         status_info["output_file_id"] = batch.output_file_id
+        status_info["error_file_id"] = error_file_id
         status_info["result_count"] = len(result_lst)
         status_info["error_count"] = len(errors)
         with open(status_path, "w", encoding="utf-8") as f:
