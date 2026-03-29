@@ -18,11 +18,13 @@ user_id = df_users.iloc[0]["id"]
 # ----------------------------------------------------------------
 
 def search_restaurants(query=None, category=None, min_rating=None,
-                       only_open=False, sort="relevance",
-                       page=1, page_size=20):
+                       only_open=False, sort="relevance"):
     """
-    음식점을 검색/필터/정렬하여 페이지 단위로 반환합니다.
+    음식점을 검색/필터/정렬하여 반환합니다.
+    검색 결과는 항상 1페이지부터 고정된 개수만 반환합니다.
     """
+    page = 1
+    page_size = 20
     result = df_restaurants.copy()
 
     # 키워드 검색: 식당명 또는 메뉴명
@@ -54,7 +56,7 @@ def search_restaurants(query=None, category=None, min_rating=None,
     if sort == "rating":
         result = result.sort_values("rating_avg", ascending=False)
 
-    # 페이지네이션
+    # 백엔드 고정 페이지네이션
     total_items = len(result)
     total_pages = max(1, -(-total_items // page_size))  # ceil division
     start = (page - 1) * page_size
@@ -701,16 +703,6 @@ tools = [
                     "description": "정렬 기준 ('relevance' | 'rating' | 'delivery_fee')",
                     "default": "relevance"
                 },
-                "page": {
-                    "type": "integer",
-                    "description": "페이지 번호 (1부터 시작)",
-                    "default": 1
-                },
-                "page_size": {
-                    "type": "integer",
-                    "description": "페이지당 항목 수",
-                    "default": 20
-                }
             },
             "required": [],
             "additionalProperties": False

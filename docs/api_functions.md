@@ -9,7 +9,7 @@
 ## 1. `search_restaurants`
 
 ### 기능
-식당 목록을 검색/필터/정렬하여 페이지 단위로 반환합니다.
+식당 목록을 검색/필터/정렬하여 반환합니다. 검색 결과는 백엔드 정책에 따라 항상 1페이지부터 정해진 개수만 반환합니다.
 
 ### 시그니처
 ```python
@@ -20,8 +20,6 @@ async def search_restaurants(
     min_rating: Optional[float] = None,# 최소 평점 (restaurants.rating_avg)
     only_open: bool = False,           # 현재 영업 중인 식당만 필터
     sort: str = "relevance",           # 정렬 기준 ('relevance' | 'rating' | 'delivery_fee')
-    page: int = 1,
-    page_size: int = 20,
 ) -> dict  # Page 구조 반환
 ```
 
@@ -35,8 +33,6 @@ await search_restaurants(
     min_rating=4.5,
     only_open=False,
     sort="rating",
-    page=1,
-    page_size=20,
 )
 ```
 
@@ -48,8 +44,6 @@ await search_restaurants(
     min_rating=None,
     only_open=False,
     sort="relevance",
-    page=1,
-    page_size=20,
 )
 ```
 

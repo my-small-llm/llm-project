@@ -116,10 +116,8 @@ async def search_restaurants(
     min_rating: Optional[float] = None,
     only_open: bool = False,
     sort: str = "relevance",
-    page: int = 1,
-    page_size: int = 20,
 ) -> SearchRestaurantsResponse:
-    """음식점을 검색/필터/정렬하여 페이지 단위로 반환합니다.
+    """음식점을 검색/필터/정렬하여 반환합니다.
 
     Args:
         query: 음식점 이름 또는 메뉴 키워드
@@ -127,14 +125,14 @@ async def search_restaurants(
         min_rating: 최소 평점 필터 (0.0 ~ 5.0)
         only_open: True이면 현재 영업 중인 음식점만 반환
         sort: 정렬 기준 ("relevance" | "rating" | "delivery_fee")
-        page: 페이지 번호 (1부터 시작)
-        page_size: 페이지당 항목 수
 
     Returns:
         items: 음식점 요약 목록 (restaurant_id, name, category, rating_avg, is_open, min_order_amount)
-        pagination: 페이지 정보 (page, page_size, total_items, total_pages)
+        pagination: 페이지 정보 (고정값으로 page=1, page_size=20 반환)
         applied_filters: 실제 적용된 필터 조건
     """
+    page = 1
+    page_size = 20
     items = [
         {
             "restaurant_id": "76a2d649-8a13-49fb-8b61-d63fbcaec5ea",

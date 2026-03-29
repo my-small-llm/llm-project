@@ -174,7 +174,7 @@ tools = [
     {
         "type": "function",
         "name": "search_restaurants",
-        "description": "식당 목록을 검색/필터/정렬하여 페이지 단위로 반환합니다. 식당명이나 메뉴명으로 검색하거나, 카테고리·최소 평점·영업 여부로 필터링할 수 있습니다.",
+        "description": "식당 목록을 검색/필터/정렬하여 반환합니다. 식당명이나 메뉴명으로 검색하거나, 카테고리·최소 평점·영업 여부로 필터링할 수 있습니다. 검색 결과는 백엔드 정책에 따라 항상 1페이지부터 정해진 개수만 반환됩니다.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -199,16 +199,6 @@ tools = [
                     "type": "string",
                     "description": "정렬 기준 ('relevance' | 'rating' | 'delivery_fee')",
                     "default": "relevance"
-                },
-                "page": {
-                    "type": "integer",
-                    "description": "페이지 번호 (1부터 시작)",
-                    "default": 1
-                },
-                "page_size": {
-                    "type": "integer",
-                    "description": "페이지당 항목 수",
-                    "default": 20
                 }
             },
             "required": [],
