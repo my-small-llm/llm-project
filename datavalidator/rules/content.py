@@ -3,7 +3,8 @@
 tool_call의 파라미터 값이 대화 컨텍스트에서 추론 가능한지 검증한다.
 
 검증 항목:
-- 비기본값 파라미터(page_size, sort, only_open, is_default)에 대한 발화 근거
+- 스키마에서 제거된 파라미터(page, page_size) 사용 탐지
+- 비기본값 파라미터(sort, only_open, is_default)에 대한 발화 근거
 - quantity, special_request 등 사용자 명시 파라미터의 발화 존재 여부
 - ID 값이 이전 tool_response에서 제공된 값인지 여부
 - payment_method, delivery_note, gate_password 등 발화 기반 확인
@@ -38,8 +39,6 @@ _TOOL_RESPONSE_RE = re.compile(r"<tool_response>\s*(.*?)\s*</tool_response>", re
 _NUMBER_RE = re.compile(r"\d+\.?\d*")
 
 DEFAULTS = {
-    "page_size": 20,
-    "page": 1,
     "sort": "relevance",
     "only_open": False,
     "is_default": False,
@@ -155,26 +154,19 @@ def _check_single_call(
             value=value,
         )
 
-    # 1. page_size 비기본값
-    if "page_size" in args and args["page_size"] != DEFAULTS["page_size"]:
-        val = args["page_size"]
-        all_numbers = _extract_numbers(all_prior_msgs)
-        if val not in user_numbers and val not in all_numbers:
-            errors.append(_err(
-                "page_size", str(val),
-                f"사용자가 페이지 크기 {val}을 언급하지 않음 (기본값: 20)",
-            ))
+    # 1. 스키마에서 제거된 파라미터 사용 탐지
+    if "page_size" in args:
+        errors.append(_err(
+            "page_size", str(args["page_size"]),
+            "스키마에서 제거된 파라미터 사용 (환각)",
+        ))
+    if "page" in args:
+        errors.append(_err(
+            "page", str(args["page"]),
+            "스키마에서 제거된 파라미터 사용 (환각)",
+        ))
 
-    # 2. page 비기본값
-    if "page" in args and args["page"] != DEFAULTS["page"]:
-        val = args["page"]
-        if val not in user_numbers:
-            errors.append(_err(
-                "page", str(val),
-                f"사용자가 페이지 번호 {val}을 언급하지 않음",
-            ))
-
-    # 3. quantity
+    # 2. quantity
     if "quantity" in args:
         val = args["quantity"]
         if val not in user_numbers and not _has_korean_number(user_msg, val):
@@ -185,7 +177,7 @@ def _check_single_call(
                     f"사용자가 수량 {val}을 언급하지 않음",
                 ))
 
-    # 4. special_request
+    # 3. special_request
     if "special_request" in args and args["special_request"]:
         val = args["special_request"]
         keywords = [w for w in val.split() if len(w) >= 2]
@@ -196,7 +188,7 @@ def _check_single_call(
                 f"사용자 발화에서 관련 내용을 찾을 수 없음",
             ))
 
-    # 5. delivery_note
+    # 4. delivery_note
     if "delivery_note" in args and args["delivery_note"]:
         val = args["delivery_note"]
         keywords = [w for w in val.split() if len(w) >= 2]
@@ -207,7 +199,7 @@ def _check_single_call(
                 f"사용자 발화에서 관련 내용을 찾을 수 없음",
             ))
 
-    # 6. gate_password
+    # 5. gate_password
     if "gate_password" in args and args["gate_password"]:
         val = args["gate_password"]
         if val not in all_prior_msgs:
@@ -216,7 +208,7 @@ def _check_single_call(
                 f"사용자 발화에서 비밀번호를 찾을 수 없음",
             ))
 
-    # 7. payment_method
+    # 6. payment_method
     if "payment_method" in args:
         val = args["payment_method"]
         found = False
@@ -230,7 +222,7 @@ def _check_single_call(
                 f"사용자 발화에서 결제 수단 관련 언급을 찾을 수 없음",
             ))
 
-    # 8. is_default=true
+    # 7. is_default=true
     if "is_default" in args and args["is_default"] is True:
         if not any(kw in all_prior_msgs for kw in DEFAULT_ADDR_KEYWORDS):
             errors.append(_err(
@@ -238,7 +230,7 @@ def _check_single_call(
                 "사용자가 기본 배송지 설정을 요청하지 않음",
             ))
 
-    # 9. sort 비기본값
+    # 8. sort 비기본값
     if "sort" in args and args["sort"] != DEFAULTS["sort"]:
         val = args["sort"]
         keywords = SORT_KEYWORDS.get(val, [])
@@ -248,7 +240,7 @@ def _check_single_call(
                 f"사용자가 정렬 기준 관련 언급을 하지 않음",
             ))
 
-    # 10. ID 값이 이전 대화에 없는 경우 (user_id, snapshot 제외)
+    # 9. ID 값이 이전 대화에 없는 경우 (user_id, snapshot 제외)
     for param, val in args.items():
         if param == "snapshot":
             continue
