@@ -188,17 +188,17 @@ tools = [
                 },
                 "min_rating": {
                     "type": "number",
-                    "description": "최소 평점 필터 (0.0 ~ 5.0)"
+                    "description": "고객이 '4.5 이상', '최소 4.3'처럼 숫자 기준을 명시한 경우에만 사용하는 최소 평점 필터입니다. '평점 높은 곳'처럼 모호한 표현만 있으면 이 파라미터는 생략합니다."
                 },
                 "only_open": {
                     "type": "boolean",
-                    "description": "true이면 현재 영업 중인 식당만 반환",
+                    "description": "고객이 '영업 중인 곳만', '지금 열려 있는 곳만'처럼 명시적으로 요청한 경우에만 true를 사용합니다. 영업 여부를 특정하지 않으면 이 파라미터는 생략합니다.",
                     "default": False
                 },
                 "sort": {
                     "type": "string",
-                    "description": "정렬 기준 ('relevance' | 'rating' | 'delivery_fee')",
-                    "default": "relevance"
+                    "description": "고객이 평점순, 관련도순, 배달비 낮은 순처럼 정렬 기준을 명시한 경우에만 사용합니다. 정렬을 특정하지 않으면 이 파라미터는 생략하며, 백엔드는 기본적으로 별점 높은 순으로 반환합니다.",
+                    "default": "rating"
                 }
             },
             "required": [],

@@ -18,10 +18,13 @@ user_id = df_users.iloc[0]["id"]
 # ----------------------------------------------------------------
 
 def search_restaurants(query=None, category=None, min_rating=None,
-                       only_open=False, sort="relevance"):
+                       only_open=False, sort="rating"):
     """
     음식점을 검색/필터/정렬하여 반환합니다.
     검색 결과는 항상 1페이지부터 고정된 개수만 반환합니다.
+    min_rating은 사용자가 4.5 이상처럼 숫자 기준을 명시한 경우에만 사용합니다.
+    only_open은 사용자가 영업 중인 곳만 요청한 경우에만 True로 사용합니다.
+    sort는 사용자가 정렬 기준을 명시한 경우에만 사용하며, 기본 정렬은 rating입니다.
     """
     page = 1
     page_size = 20
@@ -55,6 +58,8 @@ def search_restaurants(query=None, category=None, min_rating=None,
     # 정렬
     if sort == "rating":
         result = result.sort_values("rating_avg", ascending=False)
+    elif sort == "delivery_fee":
+        result = result.sort_values("delivery_fee", ascending=True)
 
     # 백엔드 고정 페이지네이션
     total_items = len(result)
@@ -678,6 +683,7 @@ tools = [
         "type": "function",
         "name": "search_restaurants",
         "description": "식당 목록을 검색/필터/정렬하여 페이지 단위로 반환합니다. 식당명이나 메뉴명으로 검색하거나, 카테고리·최소 평점·영업 여부로 필터링할 수 있습니다.",
+        "description": "식당 목록을 검색/필터/정렬하여 페이지 단위로 반환합니다. 식당명이나 메뉴명으로 검색하거나, 카테고리·최소 평점·영업 여부로 필터링할 수 있습니다.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -691,17 +697,17 @@ tools = [
                 },
                 "min_rating": {
                     "type": "number",
-                    "description": "최소 평점 필터 (0.0 ~ 5.0)"
+                    "description": "사용자가 '4.5 이상', '최소 4.3'처럼 숫자 기준을 명시한 경우에만 사용하는 최소 평점 필터입니다. '평점 높은 곳'처럼 모호한 표현만 있으면 생략합니다."
                 },
                 "only_open": {
                     "type": "boolean",
-                    "description": "true이면 현재 영업 중인 식당만 반환",
+                    "description": "고객이 '영업 중인 곳만', '지금 열려 있는 곳만'처럼 명시적으로 요청한 경우에만 true를 사용합니다. 영업 여부를 특정하지 않으면 이 파라미터는 생략합니다.",
                     "default": False
                 },
                 "sort": {
                     "type": "string",
-                    "description": "정렬 기준 ('relevance' | 'rating' | 'delivery_fee')",
-                    "default": "relevance"
+                    "description": "고객이 평점순, 관련도순, 배달비 낮은 순처럼 정렬 기준을 명시한 경우에만 사용합니다. 정렬을 특정하지 않으면 이 파라미터는 생략하며, 백엔드는 기본적으로 별점 높은 순으로 반환합니다.",
+                    "default": "rating"
                 },
             },
             "required": [],
