@@ -33,11 +33,13 @@ python -m evaluations.runner \
 python -m evaluations.runner \
     --model Qwen/Qwen2.5-7B-Instruct \
     --lora outputs/default \
+    --max-model-len 8192 \
     --dataset eval_data/dataset.jsonl \
     --output eval_output_lora
 ```
 
 `--lora`에 학습된 LoRA 어댑터 경로를 지정하면 베이스 모델에 LoRA를 적용하여 추론한다.
+KV cache 부족으로 초기화가 실패하는 경우 `--max-model-len 8192`처럼 학습 시 사용한 길이로 제한하면 안정적이다.
 
 ### 시나리오 4: OpenAI API 모델 평가
 

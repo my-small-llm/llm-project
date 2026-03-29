@@ -62,6 +62,7 @@ def _run_vllm_inference(
     model_name: str,
     max_new_tokens: int = 512,
     lora_path: str | None = None,
+    max_model_len: int | None = None,
     seed: int = 42,
 ) -> list[str]:
     """
@@ -81,13 +82,17 @@ def _run_vllm_inference(
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
 
-    llm = LLM(
-        model=model_name,
-        trust_remote_code=True,
-        enable_lora=lora_path is not None,
-        max_lora_rank=128,
-        seed=seed,
-    )
+    llm_kwargs = {
+        "model": model_name,
+        "trust_remote_code": True,
+        "enable_lora": lora_path is not None,
+        "max_lora_rank": 128,
+        "seed": seed,
+    }
+    if max_model_len is not None:
+        llm_kwargs["max_model_len"] = max_model_len
+
+    llm = LLM(**llm_kwargs)
     sampling_params = SamplingParams(
         temperature=0.0,
         max_tokens=max_new_tokens,
@@ -122,6 +127,7 @@ def run_evaluation(
     max_new_tokens: int = 512,
     inference_only: bool = False,
     lora_path: str | None = None,
+    max_model_len: int | None = None,
     seed: int = 42,
 ) -> None:
     """
@@ -160,7 +166,16 @@ def run_evaluation(
     prompts = [_build_chatml_prompt(inp.messages) for inp in inference_inputs]
     if lora_path:
         print(f"  LoRA 어댑터: {lora_path}")
-    predictions = _run_vllm_inference(prompts, model_name, max_new_tokens, lora_path=lora_path, seed=seed)
+    if max_model_len is not None:
+        print(f"  max_model_len: {max_model_len}")
+    predictions = _run_vllm_inference(
+        prompts,
+        model_name,
+        max_new_tokens,
+        lora_path=lora_path,
+        max_model_len=max_model_len,
+        seed=seed,
+    )
     print(f"  추론 완료: {len(predictions)}개 예측")
 
     # 3. 예측 저장
@@ -228,6 +243,12 @@ def main():
         help="LoRA 어댑터 경로 (지정하면 베이스 모델에 LoRA를 적용하여 추론)",
     )
     parser.add_argument(
+        "--max-model-len",
+        type=int,
+        default=None,
+        help="vLLM에 명시적으로 전달할 최대 컨텍스트 길이 (예: 8192)",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -242,6 +263,7 @@ def main():
         max_new_tokens=args.max_new_tokens,
         inference_only=args.inference_only,
         lora_path=args.lora,
+        max_model_len=args.max_model_len,
         seed=args.seed,
     )
 
