@@ -322,11 +322,12 @@ python -m datavalidator.validate \
 
 ---
 
-## 설정 관리 (`config.py` & `prompts.py`)
+## 설정 관리 (`config.py`, `tool_specs.py`, `prompts.py`)
 
 | 파일 | 주요 내용 |
 | ---- | --------- |
-| `config.py` | `USER_IDS`, `QUESTION_TOPICS`, `UNSUPPORTED_SCENARIOS`, `GOLD_CATEGORIES`, 도구 명세(`tools`), 반환 포맷(`tools_return_format`). **데이터 구조가 변경되면 이 파일을 가장 먼저 수정합니다.** |
+| `config.py` | `USER_IDS`, `QUESTION_TOPICS`, `UNSUPPORTED_SCENARIOS`, `GOLD_CATEGORIES` 등 데이터 생성용 설정. |
+| `tool_specs.py` | 도구 명세(`tools`), 반환 포맷(`tools_return_format`), validator용 타입 힌트/목업 함수. **함수 계약이 바뀌면 이 파일을 가장 먼저 수정합니다.** |
 | `prompts.py` | `SYSTEM_PROMPT_FIXED` (상담사 기본 지침). 응답 턴 수 제어 또는 어투 변경 시 이 파일을 수정합니다. |
 
 ---
@@ -336,7 +337,8 @@ python -m datavalidator.validate \
 ```text
 datagen/
 ├── __init__.py                  # 패키지 초기화
-├── config.py                    # 설정 (user_ids, 시나리오, tools, tools_return_format)
+├── config.py                    # 설정 (user_ids, 시나리오, 골드 카테고리)
+├── tool_specs.py                # 함수 계약 단일 원본 (tools, return format, validator stubs)
 ├── prompts.py                   # 시스템 프롬프트 + 유저 프롬프트 빌더
 ├── generate_batch.py            # 학습용 Step 1: 대량 JSONL 생성
 ├── generate_gold_batch.py       # 평가용 Step 1: 골드 데이터(80건) JSONL 생성

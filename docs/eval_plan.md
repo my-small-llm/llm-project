@@ -150,7 +150,7 @@ gt 히스토리(정답 대화를 히스토리에 누적)로 변경했다. 근거
 
 1. **tool_response 생성 문제**: pred 히스토리 방식에서는 모델이 tool_call을 예측한 뒤
    그에 대한 tool_response를 생성해야 다음 턴으로 넘어갈 수 있다.
-   현재 mock 함수(`docs/custom_functions.py`)가 입력 파라미터와 무관하게
+   현재 mock 함수(`datagen/tool_specs.py`)가 입력 파라미터와 무관하게
    하드코딩된 동일한 값을 반환하므로, 모델이 올바른 호출을 해도
    비현실적인 tool_response가 히스토리에 쌓인다.
    이는 eval_plan.md가 의도한 "자연스러운 오류 전파"가 아닌
