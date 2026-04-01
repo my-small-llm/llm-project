@@ -31,8 +31,8 @@ class SearchFilters(TypedDict):
     query: Optional[str]
     category: Optional[str]
     min_rating: Optional[float]
-    only_open: bool
-    sort: str
+    only_open: Optional[bool]
+    sort: Optional[str]
 
 
 class SearchRestaurantsResponse(TypedDict):
@@ -119,8 +119,8 @@ async def search_restaurants(
     query: Optional[str] = None,
     category: Optional[str] = None,
     min_rating: Optional[float] = None,
-    only_open: bool = False,
-    sort: str = "rating",
+    only_open: Optional[bool] = None,
+    sort: Optional[str] = None,
 ) -> SearchRestaurantsResponse:
     page = 1
     page_size = 20
@@ -397,13 +397,11 @@ tools = [
                 },
                 "only_open": {
                     "type": "boolean",
-                    "description": "고객이 '영업 중인 곳만', '지금 열려 있는 곳만'처럼 명시적으로 요청한 경우에만 true를 사용합니다. 영업 여부를 특정하지 않으면 이 파라미터는 생략합니다.",
-                    "default": False
+                    "description": "고객이 '영업 중인 곳만', '지금 열려 있는 곳만'처럼 명시적으로 요청한 경우에만 true를 사용합니다. 영업 여부를 특정하지 않으면 이 파라미터는 생략합니다. 필터를 걸지 않는 기본 상태는 false를 명시하는 대신 생략으로 표현합니다."
                 },
                 "sort": {
                     "type": "string",
-                    "description": "고객이 평점순, 관련도순, 배달비 낮은 순처럼 정렬 기준을 명시한 경우에만 사용합니다. 정렬을 특정하지 않으면 이 파라미터는 생략하며, 백엔드는 기본적으로 별점 높은 순으로 반환합니다.",
-                    "default": "rating"
+                    "description": "고객이 평점순, 관련도순, 배달비 낮은 순처럼 정렬 기준을 명시한 경우에만 사용합니다. 정렬을 특정하지 않으면 이 파라미터는 생략하며, 백엔드는 기본적으로 별점 높은 순으로 반환합니다."
                 }
             },
             "required": [],
@@ -577,7 +575,7 @@ tools_return_format = [
         "result_columns_format": {
             "items": "list(dict[restaurant_id: string, name: string, category: string, rating_avg: float, is_open: boolean, min_order_amount: integer])",
             "pagination": "dict[page: integer, page_size: integer, total_items: integer, total_pages: integer]",
-            "applied_filters": "dict[query: string|null, category: string|null, min_rating: float|null, only_open: boolean, sort: string]",
+            "applied_filters": "dict[query: string|null, category: string|null, min_rating: float|null, only_open: boolean|null, sort: string|null]",
         },
     },
     {

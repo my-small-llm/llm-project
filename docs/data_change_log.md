@@ -13,6 +13,23 @@
 
 ## 로그
 
+### 2026-04-01
+
+- `eval_data`
+  - 문제: `search_restaurants` 멀티턴 GT에서 `only_open`과 `sort`가 턴 사이에 일관되지 않았다. 어떤 턴은 사용자가 명시적으로 바꾸지 않았는데도 기존 `only_open=true` 또는 `sort`가 빠졌고, 반대로 일부 턴은 정렬 기준을 직접 말하지 않았는데 `sort="rating"`이 과하게 남아 있었다.
+  - 변경: [only_open_sort_decision_summary.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/only_open_sort_decision_summary.md) 기준으로 `eval_data/dataset.jsonl`의 `search_restaurants` 호출을 재검토했다. 정렬 기준을 직접 말하지 않은 `sort`는 제거하고, 멀티턴에서 사용자가 `only_open`/`sort`를 명시적으로 바꾸지 않은 경우에는 자연스러운 carry-over를 반영해 GT를 정리했다.
+  - 예시: `{"category":"한식","min_rating":4.5,"sort":"rating"}` -> `{"category":"한식","min_rating":4.5,"sort":"rating","only_open":true}`
+  - 상세 기준: [only_open_sort_decision_summary.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/only_open_sort_decision_summary.md)
+  - 변경 파일: `eval_data/dataset.jsonl` (`search_restaurants` 호출 25건 relabel)
+
+- `train_data`
+  - 문제: `train_data/dataset_500.jsonl`에도 같은 축의 문제가 남아 있었다. 첫 검색에서 영업 여부를 직접 말하지 않았는데 `only_open=true`가 붙은 케이스와, 정렬 기준을 말하지 않았는데 `sort="rating"` 또는 `sort="relevance"`가 기본값처럼 붙은 케이스가 넓게 섞여 있었다. 멀티턴 후속 검색 14건은 반대로 carry-over 유지 여부를 row별로 다시 판단할 필요가 있었다.
+  - 변경: [only_open_sort_decision_summary.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/only_open_sort_decision_summary.md)와 [dataset_500_only_open_sort_relabel_plan.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/dataset_500_only_open_sort_relabel_plan.md) 기준으로 `train_data/dataset_500.jsonl` 500개 row를 전수 검토하고 relabel했다. first-search의 과한 `only_open`/`sort`는 제거하고, 멀티턴 14건은 대화 흐름을 보고 유지 또는 reset을 수동 확정했다.
+  - 예시: `{"query":"bbq 판교점","only_open":true,"sort":"relevance"}` -> `{"query":"bbq 판교점"}`
+  - 상세 기준: [dataset_500_only_open_sort_relabel_plan.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/dataset_500_only_open_sort_relabel_plan.md)
+  - 변경 파일: `train_data/dataset_500.jsonl` (`search_restaurants` 호출 193건 relabel, `only_open=true` 283→161, `sort="rating"` 268→136)
+
+
 ### 2026-03-31
 
 - `eval_data`
