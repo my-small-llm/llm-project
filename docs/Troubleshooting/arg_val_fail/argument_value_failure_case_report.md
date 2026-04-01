@@ -1,6 +1,18 @@
-# argument_value_acc 실패 사례 보고서
+# argument_value 실패 사례 보고서
 
 작성일: 2026-03-24
+
+## 문서 역할
+
+이 문서는 `argument_value` 실패 분석의 기준 문서다.
+
+- `argument_value` 전체 문제 지도와 우선순위를 정리한다.
+- 대표 실패 축과 우선 수정 대상을 정리한다.
+- 이전의 `argument_value_failures_with_dialogue.md`가 맡고 있던 상세 사례 역할은 이 문서의 대표 사례 섹션과 원본 평가 산출물 참조로 통합한다.
+
+원본 turn 단위 상세 산출물은 아래 경로를 기준으로 다시 확인할 수 있다.
+
+- `/home/cwj/llm-project/eval_output/qwen-2.5-7b-function-calling_batch2_data_v2`
 
 ## 분석 기준
 
@@ -111,6 +123,9 @@
 | `get_restaurant_detail` | 1 | 시간 기준 `at` 누락 |
 
 ## 대표 실패 사례
+
+이 섹션은 이전 상세 원장에서 핵심적인 패턴만 추려 남긴다.
+전체 turn-by-turn 비교가 다시 필요하면 평가 산출물 원본을 참고한다.
 
 ### 1. 검색어가 빠지고 이전 필터가 끼어드는 패턴
 
@@ -258,6 +273,9 @@
 5. 자기 수정 발화가 많은 noisy 대화 샘플에서 "최종 의도만 채택"하는 예시를 추가하는 것이 효과적일 가능성이 높다.
 
 ## 바로 실행 가능한 보강 데이터 제안
+
+이 문서는 앞으로도 `argument_value` 전체 문제를 추적하는 기준 문서로 유지한다.
+다른 문제 축이 생기면 같은 폴더에 별도 해결 문서를 추가하고, 여기에는 전체 문제 지도와 우선순위만 계속 누적한다.
 
 1. 검색 전환형 샘플 20~30개 추가
    - `query/category/sort/only_open/page/page_size`를 2~4턴 동안 계속 바꾸는 구조

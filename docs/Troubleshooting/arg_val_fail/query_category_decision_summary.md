@@ -1,16 +1,95 @@
-# `search_restaurants` query/category 규칙 결정 요약
+# `search_restaurants` query/category 문제 정의 및 해결
 
 작성일: 2026-03-31
 
 ## 목적
 
-이 문서는 [query_category_rule_recommendation.md](/home/cwj/llm-project/eval_output/qwen-2.5-7b-function-calling_batch2_data_v2/query_category_rule_recommendation.md) 의 결론을 실제 운영 관점으로 짧게 정리한 결정 문서다.
+이 문서는 `query/category` 문제를 한 문서에서 끝까지 다루기 위해 만든 통합 문서다.
+
+아래 내용을 함께 담는다.
+
+- 문제가 무엇이었는가
+- 어떤 실패 케이스가 근거였는가
+- 어떤 규칙을 추천했는가
+- 최종적으로 무엇으로 결정했는가
 
 정리하려는 내용은 세 가지다.
 
 - datagen에서 왜 `query/category` 문제가 만들어졌는가
 - 실제 데이터와 실패 사례에서 어떤 식으로 드러났는가
 - 그래서 앞으로 어떤 규칙으로 고칠 것인가
+
+## 문제 요약
+
+전체 `argument_value` 실패 중 `search_restaurants`는 거의 아래 네 문제로 수렴했다.
+
+- `query`와 `category`의 경계가 불명확함
+- `only_open=true`를 기본값처럼 과추론함
+- `평점 높은 곳`을 `min_rating=4.5`로 과해석함
+- 정정 발화가 나와도 이전 의도를 완전히 지우지 못함
+
+그중에서도 가장 먼저 고정해야 할 문제는 `query/category` 경계였다.
+
+이 기준이 흔들리면:
+
+- datagen이 같은 의미를 샘플마다 다른 슬롯에 넣고
+- GT도 일관되지 않게 작성되며
+- 모델 예측이 의미상 맞아도 annotation 방식 차이로 실패가 발생한다
+
+## 케이스 분류
+
+이 이슈를 검토할 때 사용한 핵심 분류는 아래와 같았다.
+
+### A. `query/category` 경계 불명확
+
+- `한식`, `중식`, `일식`, `야식`처럼 cuisine/domain 표현이 `query`와 `category` 사이에서 흔들림
+
+### B. `only_open` 과추론 또는 문맥 carry-over
+
+- 사용자가 명시하지 않은 `only_open=true`가 추가되거나, 이전 open 조건을 과도하게 끌고 옴
+
+### C. soft preference의 hard filter화
+
+- `평점 높은 곳`, `인기 많은 곳` 같은 표현이 `min_rating=4.5` 같은 강한 필터로 바뀜
+
+### D. 사용자 정정 반영 실패
+
+- `피자... 아니 막국수`, `중식 말고 일식` 같은 발화에서 마지막 의도를 남기지 못함
+
+## 규칙 결정에 직접 영향을 준 사례
+
+- `conv=0 turn=0`
+  - `한식`을 `query`로 볼지 `category`로 볼지 규정이 없어서 GT와 PRED가 갈렸다.
+- `conv=0 turn=3`
+  - `치킨`과 `야식`의 관계를 어떻게 슬롯에 나눌지 규칙이 필요했다.
+- `conv=6 turn=3`
+  - 사용자가 `일식으로 바꿔줘`라고 했는데 GT가 `category=null`이라 schema 일관성 문제가 드러났다.
+- `conv=30 turn=0`
+  - `라멘`을 `query`로 둘지 `일식` category를 자동추론할지 결정이 필요했다.
+- `conv=31 turn=0`
+  - `query=중식, category=중식` 같은 중복 annotation 문제가 드러났다.
+
+즉 이 문제는 단순 모델 오류라기보다 annotation policy 부재 문제로 보는 편이 맞았다.
+
+## 추천안
+
+검토 결과 가장 안정적인 추천안은 아래였다.
+
+- `category`
+  - 고정 taxonomy 값만 사용
+  - `한식`, `중식`, `일식`, `분식`, `카페`, `야식`
+- `query`
+  - 자유 검색어만 사용
+  - 메뉴명, 요리명, 브랜드명, 식당명, 세부 키워드
+  - 예: `치킨`, `피자`, `초밥`, `라멘`, `짜장면`, `떡볶이`, `불고기 비빔밥`, `미스터피자`
+
+권장 원칙은 아래와 같았다.
+
+- cuisine / broad food domain -> `category`
+- menu / dish / keyword / brand / restaurant name -> `query`
+- 같은 의미를 `query`와 `category`에 중복해서 넣지 않는다
+- 메뉴만 말하면 `category`를 자동추론하지 않는다
+- cuisine만 말하면 `query`를 억지로 만들지 않는다
 
 ## 결론
 
