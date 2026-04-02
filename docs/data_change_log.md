@@ -13,6 +13,22 @@
 
 ## 로그
 
+### 2026-04-02
+
+- `eval_data`
+  - 문제: `eval_data/dataset.jsonl`과 sample 원문들 안의 `search_restaurants.min_rating` tool 설명이 예전 규칙으로 남아 있었다. 설명은 `평점 높은 곳`만 생략 대상으로 적고 있어서, `평점 높은 순/별점순은 sort=rating`이라는 새 기준이 gold dataset 내부 문맥에 충분히 반영되지 않았다.
+  - 변경: [min_rating_decision_summary.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/min_rating_decision_summary.md) 기준으로 `eval_data/dataset.jsonl`과 `eval_data/samples/*.txt`의 `min_rating` 설명 문구를 datagen과 동일한 새 규칙으로 통일했다. 실제 GT 대화의 `search_restaurants` 호출도 재점검했고, 이번 기준에서 `평점 높은 곳 -> min_rating` 같은 남은 케이스는 확인되지 않았다.
+  - 예시: `고객이 '4.5 이상', '최소 4.3'처럼 숫자 기준을 명시한 경우에만 ... '평점 높은 곳'처럼 ... 생략` -> `... '평점 높은 곳', '추천해줘'처럼 ... 생략. '평점 높은 순', '별점순'은 sort로 처리 ...`
+  - 상세 기준: [min_rating_decision_summary.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/min_rating_decision_summary.md)
+  - 변경 파일: `eval_data/dataset.jsonl`, `eval_data/samples/sample_*.txt` (`search_restaurants.min_rating` 설명 문구 정렬)
+
+- `train_data`
+  - 문제: `search_restaurants`에서 `평점 높은 곳`, `추천해줘`, `인기 많은 곳`, `평점 좋은 곳` 같은 soft preference를 숫자 threshold로 과해석해 `min_rating=4.3~4.6`을 붙인 GT가 넓게 남아 있었다. 또한 dataset 내부 tool schema 설명도 예전 규칙(`평점 높은 곳`만 생략) 기준이라 `sort`와 `min_rating`의 경계가 약했다.
+  - 변경: [min_rating_decision_summary.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/min_rating_decision_summary.md) 기준으로 `train_data/dataset_500.jsonl`을 재검토했다. 직전 사용자 발화에 `4.5 이상`, `최소 4.3`, `별점 4점` 같은 숫자 기준이 없으면 `search_restaurants` 호출의 `min_rating`을 제거했고, dataset 내부 tool schema 설명도 `평점 높은 순/별점순은 sort=rating` 규칙을 포함한 새 문구로 통일했다.
+  - 예시: `{"category":"한식","min_rating":4.5,"only_open":true,"sort":"rating"}` -> `{"category":"한식","only_open":true,"sort":"rating"}`
+  - 상세 기준: [min_rating_decision_summary.md](/home/cwj/llm-project/docs/Troubleshooting/arg_val_fail/min_rating_decision_summary.md)
+  - 변경 파일: `train_data/dataset_500.jsonl` (`search_restaurants` 호출 70건 relabel, `min_rating` 포함 호출 89→19, soft-to-hard 케이스 60→0)
+
 ### 2026-04-01
 
 - `eval_data`
