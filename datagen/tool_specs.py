@@ -555,7 +555,7 @@ tools = [
     {
         "type": "function",
         "name": "get_order_status",
-        "description": "주문 상태와 결제 상태를 조회합니다. 주문 진행 단계(pending/paid/preparing/delivering/delivered/cancelled)와 결제 상태를 반환합니다.",
+        "description": "주문 상태와 결제 상태를 조회합니다. 주문 진행 단계(pending/paid/preparing/delivering/delivered/cancelled)와 결제 상태를 반환합니다. 이 함수는 고객이 실제로 주문 상태/결제 상태 조회를 원하고, 조회 가능한 주문 UUID(order_id)가 이미 확보된 경우에만 호출합니다. 첫 대화에서 주문번호가 없으면 호출하지 말고 먼저 주문번호를 요청하는 clarification text를 생성하세요. 고객이 말한 번호가 UUID 형식이 아니거나 시스템에서 조회 가능한 주문 ID가 아니면 바로 호출하지 말고 조회 가능한 주문번호를 다시 요청하세요. 환불 요청, 보상 요청, 버그 신고처럼 정책 처리나 민원 접수가 핵심인 경우에는 주문번호가 함께 있어도 이 함수를 호출하지 말고 정책/안내 text를 우선 생성하세요.",
         "parameters": {
             "type": "object",
             "properties": {
