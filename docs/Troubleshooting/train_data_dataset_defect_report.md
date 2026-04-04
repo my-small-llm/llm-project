@@ -1,352 +1,294 @@
-# train_data 데이터셋 결함 통합 보고서
-
-작성일: 2026-03-27
-
-## 범위
-
-- 통합 점검 범위:
-  - `train_data/samples_500/sample_0001.txt` ~ `sample_0099.txt`
-  - `train_data/samples_500/sample_0100.txt` ~ `sample_0199.txt`
-  - `train_data/samples_500/sample_0200.txt` ~ `sample_0300.txt`
-  - `train_data/samples_500/sample_0300.txt` ~ `sample_0400.txt`
-- 통합한 기존 문서:
-  - `docs/train_data_0_99_dataset_defect_report.md`
-  - `docs/train_data_0_199_dataset_defect_report.md`
-  - `docs/train_data_100_199_dataset_defect_report.md`
-  - `docs/train_data_200_300_dataset_defect_report.md`
-  - `docs/train_data_300_400_dataset_defect_report.md`
-- 참고 문서:
-  - `docs/relevance_detection_failure_report.md`
-  - `docs/function_matching_error_conversations_merged.md`
-  - `docs/argument_value_failure_case_report.md`
-
-## 판정 기준
-
-- 모델 성능 문제가 아니라 **데이터 원문 자체가 부자연스럽거나 function-calling 학습 목적을 흐리는 결함**만 본다.
-- 특히 아래를 데이터 결함으로 판단했다.
-  - 주문/장바구니/배송지/결제 흐름과 무관한 사적 잡담, 심리상담, 생활 고민, 외부 주제 삽입
-  - 현재 툴 스키마에 없는 계정/프로필/회원탈퇴/즐겨찾기/이벤트/환불 업무의 반복 삽입
-  - 실제 함수는 없는데 `담당자에게 전달` 같은 숨은 백오피스 절차를 정상 흐름처럼 전제하는 패턴
-  - 한 턴에 서로 무관한 의도를 과도하게 합쳐 synthetic 티가 강한 구성
-  - `special_request` 슬롯에 사실상 별도 메뉴/옵션/브랜드 요청을 우겨 넣는 구조
-  - 툴 capability로 근거를 만들 수 없는 요구를 샘플이 먼저 던지는 경우
-
-## 통합 결론
-
-이 데이터셋은 전반적으로 정상적인 배달앱 주문/조회 대화라기보다, **주문 태스크 사이에 스키마 밖 고객센터 업무와 사적 잡담을 인위적으로 섞어 넣은 synthetic conversation 묶음**에 가깝다.  
-특히 `0~400` 전 구간에서 반복적으로 보이는 문제는 다음 두 가지다.
-
-1. **주문 태스크와 무관한 잡담/상담/외부 주제의 과잉 삽입**
-2. **현재 툴 스키마 밖 업무를 넣고, 이를 정형화된 fallback 문구로 처리하게 만드는 구조**
-
-이 문제는 모델이 못해서 생긴 오류라기보다, 애초에 **데이터가 주문 function-calling 학습에 불필요한 노이즈를 많이 포함하고 있다는 뜻**이다.
-
-## 전 구간 공통 결함
-
-### 1. 오프도메인 사적 잡담과 상담성 발화가 과도함
-
-주문, 장바구니, 주소, 결제 흐름 중간에 연애상담, 심리상담, 공부 고민, 날씨, 건강, 결혼, 게임, 여행 같은 발화가 매우 자주 삽입된다.
-
-대표 예시:
-
-- `0~99`
-  - `sample_0009`: `SNS보면 나만 빼고 다 행복해보여`
-  - `sample_0016`, `sample_0017`: `가스불 켜고 나온 것 같아요`
-  - `sample_0086`: `우리 같이 게임하자고 해도 되나요?`
-  - `sample_0098`: `심리 상담 좀 해줄 수 있어요?`
-- `100~199`
-  - `sample_0100`: `개념도 놓고 옴`
-  - `sample_0147`: `저 결혼해도 될까요?`
-  - `sample_0188`: `공무원이 좋지?`
-  - `sample_0193`: `공부는 꼭 해야 할까요?`
-- `200~300`
-  - `sample_0200`: `연애 상담도 해줄 수 있어요? 요즘 공부도 하기 싫고`
-  - `sample_0241`: `우울`, `심리 상담`, `교회 가기 싫다`
-  - `sample_0277`: `심리 상담` + `금값 알아?`
-  - `sample_0299`: `기분 전환이 필요해요`
-- `300~400`
-  - `sample_0318`: `긴장 푸는 법 좀 알려줘요`
-  - `sample_0324`: `연애 상담도 해줘요?`
-  - `sample_0396`: `공무원 괜찮겠지?`
-  - `sample_0400`: `요즘 진짜 공부하는 낙이 없어`
-
-판단:
-
-- 실제 서비스 로그에도 아주 가끔 잡담은 있을 수 있다.
-- 하지만 이 데이터셋은 빈도와 문장 패턴이 지나치게 반복적이라, 자연 로그라기보다 **거절 응답 유도를 위한 합성 잡음**으로 보인다.
-
-툴콜링 LoRA 파인튜닝 영향:
-
-- relevance 판단이 흐려진다.
-  - 원래는 `tool`이어야 할 주문 턴에서도, 모델이 먼저 오프도메인 거절/범위 설명 텍스트를 떠올릴 확률이 높아진다.
-- 텍스트 fallback prior가 과도하게 커진다.
-  - 특히 `죄송하지만, 제가 답변할 수 없는 내용입니다` 같은 비도구 응답이 과학습될 수 있다.
-- 멀티턴 상태 추적이 약해진다.
-  - 장바구니, 배송지, 결제처럼 직전 상태를 이어 받아야 하는 구간에서, 무관한 개인 고민 문장이 attention을 빼앗아 최신 주문 의도 추적이 흐려질 수 있다.
-
-### 2. 스키마 밖 계정/플랫폼/민원 업무가 너무 많이 섞임
-
-현재 툴은 식당 검색, 메뉴 조회, 장바구니, 배송지, 결제, 주문 상태 중심이다. 그런데 데이터는 반복적으로 아래를 섞는다.
-
-- 프로필/닉네임/프로필 사진/비밀번호 변경
-- 회원 탈퇴
-- 즐겨찾기/찜하기
-- 쿠폰/적립금/기프트콘
-- 리뷰 조회/리뷰 작성 위치
-- 환불/보상/취소/주문내역 전체 조회
-- 이벤트 응모
-
-대표 예시:
-
-- `sample_0100`: 프로필 닉네임 변경
-- `sample_0102`: 찜하기
-- `sample_0105`: 앱 비밀번호 변경
-- `sample_0184`: 이벤트 응모
-- `sample_0194`: 환불 처리
-- `sample_0201`: 회원 탈퇴
-- `sample_0211`: 프로필 조회
-- `sample_0245`: 결제 중 회원 탈퇴 요청
-- `sample_0257`: 프로필 닉네임 변경
-- `sample_0301`: 계정 비밀번호 변경
-- `sample_0313`: 즐겨찾기/찜하기
-- `sample_0387`: 회원 탈퇴
-- `sample_0391`: 보유 쿠폰 조회
-
-판단:
-
-- 이런 요청이 일부 포함될 수는 있다.
-- 하지만 데이터 전체에서 비중이 높아지면 주문 function-calling보다 **지원 불가 응답 학습**이 더 강해진다.
-
-툴콜링 LoRA 파인튜닝 영향:
+# train_data 데이터셋 구조 분석 및 개선 보고서
 
-- 함수 호출 prior 자체가 약해진다.
-  - 주문 도메인 데이터셋인데도 스키마 밖 요청이 너무 많으면, 모델이 `도구를 쓰는 어시스턴트`보다 `지원 불가를 설명하는 상담사`로 적응하기 쉽다.
-- function matching이 흔들린다.
-  - 실제 주문/조회 턴에서도 검색, 상세조회, 결제 준비로 이어가기보다 거절 텍스트를 먼저 생성하는 방향으로 편향될 수 있다.
-- 도메인 경계가 흐려진다.
-  - `주문 보조 LoRA`가 아니라 `범용 고객센터 LoRA`에 가까운 표현 습관을 학습하게 된다.
+작성일: 2026-04-04
 
-### 3. `담당자에게 전달` fallback이 허구의 정상 프로세스처럼 반복됨
+## 1. 목적
 
-스키마 밖 요청이 나오면 assistant가 거의 기계적으로 `문의하신 내용을 담당자에게 전달하여 신속히 처리하겠습니다`로 응답하는 패턴이 많다. 하지만 현재 스키마에는 민원 접수, 티켓 생성, 상담원 연결 함수가 없다.
+본 문서는 `train_data`를 "문제가 많은 잡담 데이터"로 단정하기보다, **최신 tool-calling / PEFT 연구를 기준으로 현재 데이터셋이 어떤 학습 신호를 충분히 담고 있고 어떤 의사결정 신호가 부족한지**를 재해석하기 위해 작성되었다.
 
-대표 예시:
+평가 초점은 모델 성능 자체가 아니라, **LoRA/QLoRA 기반 tool-calling 학습에서 데이터 구조가 올바른 decision boundary를 형성하는 데 얼마나 적합한가**이다.
 
-- `sample_0001`: 리뷰/배달비 불만
-- `sample_0062`: 결제 취소 문의
-- `sample_0141`: 프로필 확인, 환불
-- `sample_0184`: 이벤트 응모
-- `sample_0201`: 회원 탈퇴
-- `sample_0241`: 배달 지연, 보상/쿠폰
-- `sample_0272`: 앱 평점 불만
-- `sample_0299`: 즐겨찾기, 배달비 할인
-- `sample_0300`: 문자 영수증
-- `sample_0314`: 프로필 닉네임 변경
+## 2. 해석 기준
 
-판단:
+최근 연구들은 공통적으로 "tool-call 데이터 비율"이나 "잡담 비율" 자체보다 아래 요소를 더 중요하게 본다.
 
-- 이건 단순 텍스트 정책 문제가 아니라, **툴로 검증되지 않는 후속 처리 행동을 정상 흐름처럼 가르치는 데이터 구조**다.
-- 결과적으로 모델은 실제 실행 가능한 툴 호출보다 허구의 백오피스 응답에 익숙해질 수 있다.
+- **Decision quality**
+  - 언제 tool을 호출해야 하는지
+  - 언제 직접 답해야 하는지
+  - 언제 추가 정보를 물어야 하는지
+  - 언제 현재 도구셋으로는 처리할 수 없다고 말해야 하는지
+- **Schema faithfulness**
+  - 실제 존재하는 함수와 파라미터를 기준으로 답변과 실행이 연결되는지
+- **Conversation realism**
+  - synthetic noise를 늘리는 대신, 실제 사용자 흐름처럼 multi-turn과 clarification이 자연스럽게 이어지는지
+- **Data informativeness**
+  - LoRA/QLoRA에서 특히 중요한 정보량, 라벨 일관성, supervision의 명확성이 확보되는지
 
-툴콜링 LoRA 파인튜닝 영향:
+즉, 본 문서의 관점은 다음과 같다.
 
-- 비근거성 텍스트 hallucination이 늘어날 수 있다.
-  - 실제 함수 호출 없이도 “전달했다”, “처리 요청했다” 같은 완료형 문장을 쉽게 생성하게 된다.
-- tool faithfulness가 약해진다.
-  - 모델이 “툴로 확인한 사실”과 “관례적으로 말하는 민원 응답”을 구분하지 못하게 될 위험이 있다.
-- place_order, prepare_checkout, get_order_status 같은 실제 툴을 써야 하는 구간에서도 텍스트로 얼버무리는 경향이 강해질 수 있다.
+> 문제는 "non-tool 데이터가 많다" 그 자체가 아니라,  
+> **non-tool 데이터가 tool decision 학습에 유효한 형태로 구조화되어 있는가**이다.
 
-### 4. 한 턴에 무관한 의도를 과적재해 대화가 부자연스러움
+## 3. 데이터셋 현황 요약
 
-많은 샘플이 검색, 주문, 민원, 계정 문의, 잡담을 한 턴 또는 한 샘플에 억지로 몰아넣는다.
+총 사용자 발화: **2478턴**
 
-대표 예시:
+### 3.1 영역별 분포
 
-- `sample_0001`
-  - 비빔밥 검색 + 리뷰 기능 불만 + 장바구니 금액 확인 + 배달비 불만
-- `sample_0062`
-  - 한식집 검색 + 결제 취소 문의 + 배달비 불만 + 가족 여행 질문
-- `sample_0141`
-  - 장바구니 추가 + 프로필 확인 + 앱 속도 불만 + 결혼 질문 + 환불
-- `sample_0196`
-  - 수량 변경 + 주소 목록 + 즐겨찾기 목록 + 앱 튕김
-- `sample_0241`
-  - 결제 진행 + 우울/심리상담 + 교회 스트레스
-- `sample_0257`
-  - 장바구니 추가 + 닉네임 변경 + `선 볼까`
-- `sample_0397`
-  - 주문내역 전체 조회 + 공부 고민 + 배송지 등록 + 결제 의사
+| 영역 | 건수 | 비율 | 의미 |
+| --- | ---: | ---: | --- |
+| 퓨어 툴 | 1069 | 43.14% | 현재 보유 함수로 처리 가능한 의도만 있는 턴 |
+| 툴 + 스키마밖 혼합 | 278 | 11.22% | tool 처리 가능 요청과 unsupported 요청이 함께 있는 턴 |
+| 스키마밖 only | 229 | 9.24% | 현재 함수셋으로 직접 처리할 수 없는 요청 |
+| 기타/단답/미분류 | 902 | 36.40% | 짧은 응답, 애매한 대화, 약한 supervision 턴 |
 
-판단:
+### 3.2 상위 구조
 
-- 멀티 인텐트 자체는 자연스럽다.
-- 하지만 이 데이터는 **서로 무관한 테스트 포인트를 같은 턴에 접합한 synthetic 구성**처럼 보이는 경우가 많다.
+- **Tool 관련 전체**: 1347턴 (54.36%)
+- **Schema 밖 요청 포함 전체**: 507턴 (20.46%)
+- **의도 불명확 / 약한 supervision 턴**: 902턴 (36.40%)
 
-툴콜링 LoRA 파인튜닝 영향:
+이 수치만 보면 현재 데이터는 완전히 잘못된 데이터셋이라기보다, **tool-use 데이터 위에 unsupported 요청과 저정보량 non-tool 데이터가 함께 섞여 있는 상태**에 가깝다.
 
-- next action selection이 어려워진다.
-  - 한 턴 안에서 무엇을 우선 툴로 처리해야 하는지 경계가 흐려져, relevance와 function matching이 동시에 떨어질 수 있다.
-- argument extraction noise가 커진다.
-  - 한 발화에 주문, 민원, 잡담, 계정 요청이 섞이면 query, delivery_note, special_request 같은 슬롯에 불필요한 텍스트가 새어 들어갈 가능성이 높다.
-- spurious tool call과 missed tool call이 둘 다 증가할 수 있다.
-  - 어떤 의도를 잡아 툴을 불러야 할지 불명확한 턴이 많아지기 때문이다.
+## 4. 연구 기준에서 본 핵심 해석
 
-## 구간별 핵심 메모
+## 4.1 non-tool 비율 자체보다, non-tool의 역할 분해가 부족하다
 
-### 0~99
+최근 연구는 고정된 "잡담 비율의 정답"을 제시하지 않는다. 대신 non-tool 데이터를 아래처럼 **명시적 역할이 있는 decision supervision 데이터**로 설계하는 방향을 제안한다.
 
-핵심 문제:
+- **direct-answer / autonomy**
+  - tool 없이 직접 답할 수 있는 일반 질의
+- **clarification**
+  - 정보가 부족해 바로 tool call 하면 안 되는 질의
+- **cannot-answer / unsupported**
+  - 현재 도구셋으로 처리 불가능한 요청
+- **irrelevant-function negative**
+  - 비슷한 이름의 함수를 잘못 고르지 않도록 만드는 negative 데이터
+- **follow-up / stateful**
+  - 이전 맥락을 이어받는 짧은 후속 요청
 
-- 오프도메인 잡담 비율이 매우 높음
-- `special_request` 슬롯 남용
-- 툴 capability 밖 요구가 등장
-- `sample_0000.txt` 누락 같은 인덱싱 문제 존재
+현재 `기타/단답/미분류 902턴(36.40%)`은 이 역할 기준으로 충분히 세분화되어 있지 않다. 따라서 해석의 초점은 "잡담이 많다"가 아니라 아래에 있다.
 
-대표 샘플:
+- direct-answer형 autonomy 데이터가 얼마나 있는지 불명확하다.
+- clarification 데이터가 상대적으로 약하다.
+- follow-up / stateful supervision이 별도 의사결정 라벨로 드러나지 않는다.
+- trivial acknowledgment와 decision-relevant non-tool이 같은 바구니에 섞여 있다.
 
-- `sample_0018`
-  - 주소 기반 추천을 요구하지만 현재 `search_restaurants` 스키마에는 위치/거리/권역 인자가 없음
-- `sample_0081`
-  - `치즈볼 추가`, `뿌링클 시즈닝 추가`가 사실상 별도 메뉴/옵션인데 `special_request`에 흡수됨
-- `sample_0097`
-  - `양 많이, 날개 부분 추가`처럼 옵션/별도 주문/불가 요청 경계가 불명확한 문장을 그대로 `special_request`에 넣음
+즉, **현재 non-tool 영역의 핵심 문제는 양이 아니라 정보 구조의 불투명성**이다.
 
-판단:
+## 4.2 스키마밖 요청은 잡담이 아니라 핵심 negative / boundary 데이터다
 
-- 이 구간은 특히 **주문 스키마와 요청사항 문자열 경계가 흐린 샘플**이 많다.
+현재 데이터에서 스키마밖 요청은 총 **507턴(20.46%)**이며, 이는 단순한 노이즈로만 볼 수 없다. 최신 연구 기준에서는 이런 요청을 오히려 반드시 포함해야 하는 데이터로 본다.
 
-툴콜링 LoRA 파인튜닝 영향:
+이유는 다음과 같다.
 
-- `argument_value_acc`가 직접적으로 악화될 가능성이 높다.
-  - 별도 메뉴, 옵션, 불가 요청이 모두 `special_request` 한 칸으로 학습되면 exact match가 쉽게 깨진다.
-- `add_to_cart`와 `update_cart_item`의 역할 분리가 흐려질 수 있다.
-  - 원래는 추가 질문, 옵션 확인, 별도 메뉴 추가로 가야 할 턴을 단순 문자열 누적으로 오인하게 된다.
+- 모델은 "언제 tool을 써야 하는가"뿐 아니라 "언제 tool을 쓰지 말아야 하는가"도 배워야 한다.
+- unsupported 요청이 없으면 억지 tool call, 유사 함수 오선택, 허위 파라미터 생성이 늘어나기 쉽다.
+- irrelevant / unsupported 상황은 tool decision 품질을 가장 직접적으로 시험하는 구간이다.
 
-### 100~199
+따라서 현재 구조의 문제는 **스키마밖 요청이 들어 있다는 사실 자체가 아니라, 이 요청들이 별도 라벨과 응답 정책으로 관리되지 않고 있다는 점**이다.
 
-핵심 문제:
+권장 해석:
 
-- 스키마 밖 계정/민원 업무 비중이 높음
-- 사적 잡담 삽입 빈도가 높음
-- 전형적인 `정상 주문 -> 범위 밖 요청 -> 거절/담당자 전달` 구조가 반복됨
+- `schema 밖 요청`은 "잡담"으로 묶지 않는다.
+- 아래와 같은 명시 라벨로 분리한다.
+  - `unsupported_request`
+  - `cannot_answer_with_available_tools`
+  - `out_of_schema_request`
+  - `needs_handoff` 또는 `policy_response`
 
-대표 샘플:
+## 4.3 현재 fallback 응답은 boundary 학습에는 유용하지만, faithfulness 측면 보완이 필요하다
 
-- `sample_0100`
-  - 결제 요약 흐름에 닉네임 변경과 `개념도 어디 있는지 찾아달라`가 연속 삽입
-- `sample_0141`
-  - 장바구니 추가 + 프로필 확인 + 앱 속도 불만 + 결혼 질문 + 환불
-- `sample_0188`
-  - 배송지 삭제 요청 뒤 `공무원이 좋지?`
-- `sample_0193`
-  - 떡볶이 주문 + 닉네임 변경 + 공부 조언 요청
+스키마밖 only 229턴 중 **207턴이 assistant 텍스트 응답**으로 처리되며, 그중 상당수는 아래와 같은 반복 패턴을 가진다.
 
-판단:
+- `담당자에게 전달하겠습니다`
+- `처리해드릴 수 없습니다`
+- `답변할 수 없는 내용입니다`
 
-- 이 구간은 주문 function-calling보다 **거절/민원 대응 템플릿**을 더 많이 주입하는 방향으로 작동한다.
+이 구조는 장점과 한계를 동시에 가진다.
 
-툴콜링 LoRA 파인튜닝 영향:
+### 장점
 
-- 실제 주문 흐름보다 고객센터 응답 말버릇이 더 강하게 남을 수 있다.
-- search/detail/cart/address/checkout의 순차적 상태 전이보다 `사과 -> 전달 -> 종료 질문` 텍스트 패턴이 우세해질 수 있다.
+- unsupported 요청에 대해 tool call을 억제하는 negative supervision으로는 의미가 있다.
+- 모델이 모든 요청에 무조건 tool을 부르지 않도록 만드는 최소한의 경계 학습에는 도움이 된다.
 
-### 200~300
+### 한계
 
-핵심 문제:
+- 실제 스키마에 없는 action을 수행한 것처럼 보이는 문구는 **tool faithfulness**를 해친다.
+- "전달했다", "처리 요청했다" 같은 완료형 문장은 검증 불가능한 실행 서술이 된다.
+- limitation 설명, 가능한 대안, 추가 경로 안내가 분리되지 않아 **cannot-answer 품질이 낮아진다.**
 
-- 개인 고민/상담 삽입이 매우 잦음
-- 회원 탈퇴/프로필 조회/닉네임 변경 같은 계정 작업이 반복됨
-- 날씨/공연/금값 같은 완전한 외부 주제가 섞임
+따라서 개선 방향은 fallback 제거 자체가 아니라, **fallback를 더 정직하고 근거 있는 응답 정책으로 재작성하는 것**이다.
 
-대표 샘플:
+예시:
 
-- `sample_0200`
-  - 장바구니 담기 직후 `연애 상담`, `공부`
-- `sample_0215`
-  - 식당 메뉴 조회와 동시에 회원 탈퇴 요청
-- `sample_0231`
-  - 치킨 주문 + 심리 상담 + 교보문고
-- `sample_0241`
-  - 결제 직전 우울/심리상담/교회 스트레스
-- `sample_0277`
-  - 주문 상태 조회 뒤 `심리 상담` + `금값`
-- `sample_0289`
-  - `지금 서울 날씨 어때요?`
-- `sample_0298`
-  - 프로필 정보 조회 + 우울 + 기분 전환
+- 나쁜 형태: `담당자에게 전달했습니다`
+- 권장 형태: `현재 제공된 도구로는 회원 탈퇴를 직접 처리할 수 없습니다. 앱 고객센터 또는 계정 설정 메뉴에서 진행해 주세요.`
 
-판단:
+## 4.4 혼합 의도 자체보다, "어떻게 혼합되었는가"가 중요하다
 
-- 이 구간은 **주문 데이터라기보다 오프도메인 잡담과 지원 불가 계정 업무를 섞은 synthetic 대화**라는 성격이 강하다.
+한 발화 안에 의도 범주가 3개 이상 섞인 샘플은 **136턴(5.49%)**이다.
 
-툴콜링 LoRA 파인튜닝 영향:
+- 49개: tool 관련 요청만 여러 개 겹침
+- 70개: tool 요청 + 스키마밖 요청 혼합
+- 11개: tool 요청 + 잡담/상담 혼합
+- 6개: tool 요청 + 스키마밖 요청 + 잡담 동시 혼합
 
-- relevance detection이 가장 크게 흔들릴 가능성이 있다.
-  - 정상 주문 턴과 오프도메인 턴이 한 대화 안에서 자주 교차해, 모델이 `지금은 툴을 써야 하는 턴인지` 판단하기 어려워진다.
-- 텍스트 응답과 툴 응답 사이 decision boundary가 흐려져 missed/spurious tool call이 모두 늘어날 수 있다.
+최근 연구 흐름은 multi-intent 자체를 금지하지 않는다. 오히려 실제 사용자는 복합적이고 모호한 요청을 자주 한다고 본다. 다만, 아래와 같은 샘플은 품질이 떨어질 가능성이 높다.
 
-### 300~400
+- 서로 관련 없는 요청을 한 턴에 과하게 욱여넣은 경우
+- priority가 불분명한 경우
+- clarification 없이 바로 실행하도록 유도하는 경우
+- multi-turn으로 나누면 자연스러운 흐름을 단일 턴에 압축한 경우
 
-핵심 문제:
+따라서 현재 mixed-intent 데이터는 전부 제거 대상이 아니라, 아래 기준으로 재정비하는 것이 맞다.
 
-- 주문과 무관한 기능 요청, 상담성 발화, 문맥 파손성 문장 파편이 많음
-- 한 턴에 주문/계정/사적 고민/외부 주제를 과도하게 압축한 경우가 반복됨
+- **관련 있는 복합 요청**은 유지
+- **서로 무관한 요청의 과적재**는 축소
+- 필요한 경우 **clarification -> 단계적 실행 -> 후속 응답** 형태의 multi-turn으로 분해
 
-대표 샘플:
+## 5. 현재 데이터셋의 구조적 보완 포인트
 
-- `sample_0313`
-  - 즐겨찾기 요청 뒤 `기획사니까 당연히 예쁜 애들 많겠지`
-- `sample_0314`
-  - 결제 준비 흐름에 닉네임 변경 + `기획사에 예쁜 애들 많겠지?`
-- `sample_0318`
-  - 주문 흐름 끝에 `긴장 푸는 법`
-- `sample_0386`
-  - `결정적인 물증이 없어` 같은 문맥 파손성 문장
-- `sample_0390`
-  - 주문/프로필 조회/메타 질문/사적 토로가 한 대화에 연속 삽입
-- `sample_0397`
-  - 주문내역 전체 조회 + 공부 고민 + 배송지 등록 + 결제
+## 5.1 "기타/단답/미분류" 36.40%는 재라벨링 우선순위가 가장 높다
 
-판단:
+이 영역은 단순히 삭제할 대상이 아니라, **decision supervision으로 전환 가능한 후보 집합**으로 보는 것이 맞다.
 
-- 이 구간은 특히 **문장 파편 삽입과 무관한 멀티 인텐트 과적재**가 심하다.
+우선 아래처럼 재분류하는 것을 권장한다.
 
-툴콜링 LoRA 파인튜닝 영향:
+1. **direct-answer / autonomy**
+   - tool 없이 답해야 하는 일반 설명, 추천, 상식, 짧은 조언
+2. **clarification**
+   - missing parameter, ambiguous request, slot 부족
+3. **follow-up / stateful**
+   - `그걸로 해줘`, `아까 거 다시 보여줘` 같은 후속 요청
+4. **unsupported / cannot-answer**
+   - 현재 함수셋 밖 요청
+5. **trivial ack**
+   - `네`, `아니요`, `고마워` 같은 저정보량 턴
 
-- attention이 문맥 파편에 낭비되어 핵심 주문 상태 추적이 약해질 수 있다.
-- 비정상적인 문장 조각 때문에 assistant의 자유 텍스트 응답 안정성도 떨어질 수 있다.
-- 일부 샘플은 function choice보다 먼저 “현재 턴을 이해하는 것” 자체를 어렵게 만들어, 전반적 추론 품질을 깎을 수 있다.
+이렇게 바꾸면 기존의 큰 "기타" 덩어리가 **tool decision 학습에 실제로 쓰이는 supervision 데이터**로 바뀔 수 있다.
 
-## 최종 판단
+## 5.2 스키마밖 데이터는 유지하되, 응답 품질과 라벨 체계를 올려야 한다
 
-전 구간에서 가장 큰 문제는 아래 다섯 가지로 요약된다.
+현재 스키마밖 비율 자체는 과도하게 높다고 단정하기 어렵다. 오히려 툴 중심 어시스턴트라면 어느 정도의 unsupported 데이터는 필수다.
 
-1. 배달앱과 무관한 사적 잡담/상담 요청의 과잉 삽입
-2. 스키마 밖 계정/플랫폼/민원 업무의 과도한 혼입
-3. `담당자에게 전달` 같은 숨은 인간 에스컬레이션 절차의 상시 전제
-4. 한 턴에 무관한 의도를 과적재한 synthetic 멀티 인텐트
-5. 일부 구간의 `special_request` 남용, capability mismatch, 문맥 파손 문장
+실무 출발점으로는 다음 구조를 권장한다.
 
-즉 이 데이터셋은 "실제 주문 보조 대화"라기보다, **주문 태스크에 거절용 잡음과 스키마 밖 고객센터 업무를 과하게 섞어 놓은 synthetic 데이터**로 보는 편이 타당하다.
+- **direct-answer / autonomy형**: 10~20%
+- **unsupported / irrelevance / cannot-answer형**: 5~15%
+- **나머지 주력**: tool-use
 
-## LoRA 관점 종합 영향
+이 수치는 특정 논문이 고정 정답으로 제시한 값은 아니며, 최신 연구가 공통적으로 강조하는 데이터 종류를 반영한 **초기 실험용 기준선**이다.
 
-툴콜링 LoRA 파인튜닝 관점에서 보면, 위 결함들은 대체로 아래 네 축으로 성능을 깎는다.
+중요한 점은 비율보다 아래 조건이다.
 
-1. **relevance detection 저하**
-   - 툴을 불러야 할 턴에서도 텍스트 거절 응답으로 새기 쉬워진다.
-2. **function matching 저하**
-   - 검색, 상세조회, 장바구니, 결제 준비 같은 정상 액션 대신 fallback 텍스트가 먼저 활성화된다.
-3. **argument value 저하**
-   - `special_request`, `delivery_note`, `query` 같은 필드에 불필요한 문구가 섞이거나, 반대로 필요한 값이 소실된다.
-4. **faithfulness 저하**
-   - 실제 툴로 확인하지 않은 상태를 `담당자에게 전달`, `처리 요청 완료`처럼 말하는 습관이 강화된다.
+- unsupported 데이터가 별도 라벨로 관리될 것
+- irrelevant function negative가 포함될 것
+- cannot-answer 응답이 정직하고 일관될 것
+- policy/handoff 문구가 허구의 실행처럼 보이지 않을 것
 
-즉 이 데이터셋 결함은 단순히 “약간 부자연스럽다” 수준이 아니라, LoRA가 학습해야 할 핵심인 `언제 툴을 부를지`, `어떤 툴을 고를지`, `값을 어떻게 채울지`, `툴로 확인한 사실만 말할지`를 모두 동시에 흐릴 수 있다.
+## 5.3 현재 데이터에 추가되어야 할 샘플 유형
 
-## 권장
+최신 벤치마크와 논문 흐름을 기준으로 보면, 아래 유형은 반드시 보강하는 것이 좋다.
 
-- 주문 function-calling 학습셋에서는 이런 샘플을 별도 태그로 분리하는 편이 좋다.
-- 핵심 주문 성능을 보려는 실험에서는 제외하거나 가중치를 낮추는 것이 합리적이다.
-- `담당자에게 전달`류 허구 fallback은 별도 정책/고객센터 응답 데이터로 떼어내는 편이 낫다.
-- `special_request` 남용 샘플, capability mismatch 샘플, 문맥 파손 샘플은 별도 버킷으로 관리하는 것이 좋다.
+### 1. ambiguous query
+
+- 예: `피자 시켜줘`
+- 어떤 매장인지, 어떤 메뉴인지, 어떤 주소인지 부족한 상태
+- 바로 tool call 하지 않고 clarification을 해야 한다
+
+### 2. missing parameter
+
+- 예: `지난번처럼 주문해줘`
+- 맥락 추적 또는 추가 질문이 필요한 상황
+
+### 3. wrong-tool 유도 / irrelevant function negative
+
+- 함수 이름이 비슷하거나 일부만 관련 있는 상황
+- 올바른 non-call 또는 대안 제시를 학습해야 한다
+
+### 4. partial execution
+
+- 요청 일부만 tool로 처리 가능하고 나머지는 unsupported인 상황
+- 무엇을 실행하고 무엇을 거절할지 분리해야 한다
+
+### 5. multi-turn follow-up / stateful
+
+- 앞선 응답을 이어받는 후속 지시
+- 실제 주문/조회 플로우에 더 가깝다
+
+### 6. policy / refusal / harmful tool response
+
+- 안전상 호출하면 안 되는 요청
+- 도구 사용 가능성과 정책 허용 여부를 함께 판단해야 한다
+
+## 6. 권장 라벨 체계
+
+현재 4개 분류를 유지하더라도, 연구 기준에 맞추려면 최소한 아래 7개 역할 라벨로 재설계하는 편이 좋다.
+
+1. **pure_tool_use**
+2. **tool_use_with_clarification_needed**
+3. **direct_answer_autonomy**
+4. **out_of_schema_unsupported**
+5. **irrelevant_function_negative**
+6. **multi_turn_followup_stateful**
+7. **policy_refusal_or_safe_fallback**
+
+이 구조의 장점은 다음과 같다.
+
+- tool-call 성공 여부만이 아니라 decision quality를 직접 학습할 수 있다.
+- unsupported 요청을 잡담과 분리할 수 있다.
+- clarification과 follow-up을 별도 supervision으로 관리할 수 있다.
+- LoRA/QLoRA에서 중요한 라벨 일관성과 정보량을 높일 수 있다.
+
+## 7. 실무용 개선 가이드
+
+## 7.1 바로 수정할 것
+
+- `기타/단답/미분류`를 유지하지 말고 역할 기반으로 재라벨링한다.
+- `담당자에게 전달했습니다` 같은 허구의 완료형 문구를 제거한다.
+- unsupported 요청을 `잡담`이 아니라 `boundary/negative data`로 승격한다.
+- 복합 요청 중 무관한 intent 과적재 샘플은 multi-turn으로 분해한다.
+
+## 7.2 유지하되 정제할 것
+
+- schema 밖 요청 자체는 유지한다.
+- tool + unsupported 혼합 샘플도 유지 가능하다.
+- 다만 `일부는 tool 처리`, `일부는 추가 질문`, `일부는 불가 안내`가 구분되도록 supervision을 다시 써야 한다.
+
+## 7.3 추가할 것
+
+- clarification 중심 샘플
+- missing parameter 샘플
+- irrelevant function negative 샘플
+- multi-turn state tracking 샘플
+- partial execution 샘플
+
+## 8. 결론
+
+현재 데이터셋의 핵심 이슈는 "잡담이 많다"가 아니다.  
+연구 기준에서 더 정확한 진단은 아래와 같다.
+
+- **decision supervision이 충분히 역할 분해되어 있지 않다**
+- **unsupported 요청이 핵심 negative data임에도 별도 라벨과 응답 정책이 약하다**
+- **fallback 텍스트 일부가 tool faithfulness를 해칠 수 있다**
+- **혼합 의도 샘플 중 일부는 multi-turn / clarification 구조로 바꾸는 편이 더 현실적이다**
+
+따라서 이 데이터셋은 전면 폐기 대상이라기보다, **tool-use 중심 데이터 위에 decision-quality supervision을 보강하고 라벨 체계를 재구성해야 하는 데이터셋**으로 보는 것이 적절하다.
+
+## 9. 참고 문헌
+
+1. A Deep Dive into the Trade-Offs of Parameter-Efficient Preference Alignment Techniques  
+   https://arxiv.org/abs/2406.04879
+2. When2Call: When (not) to Call Tools  
+   https://arxiv.org/abs/2504.18851
+3. Hammer: Robust Function-Calling for On-Device Language Models via Function Masking  
+   https://arxiv.org/abs/2410.04587
+4. BFCL V3: Multi-Turn & Multi-Step Function Calling  
+   https://gorilla.cs.berkeley.edu/blogs/13_bfcl_v3_multi_turn.html
+5. ToolFlow: Boosting LLM Tool-Calling Through Natural and Coherent Dialogue Synthesis  
+   https://arxiv.org/abs/2410.18447
+6. ToolPlanner: A Tool Augmented LLM for Multi Granularity Instructions with Path Planning and Feedback  
+   https://aclanthology.org/2024.emnlp-main.1018/
+7. ToolACE: Winning the Points of LLM Function Calling  
+   https://arxiv.org/abs/2409.00920
