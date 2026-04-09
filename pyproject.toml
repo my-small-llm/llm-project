@@ -11,6 +11,7 @@ dependencies = [
     "ipykernel>=7.2.0",
     "matplotlib>=3.10.8",
     "openai>=2.21.0",
+    "python-dotenv>=1.1.0",
     "pandas>=2.3.3",
     "peft==0.13.0",
     "setuptools>=82.0.0",
