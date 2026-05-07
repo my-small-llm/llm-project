@@ -4,7 +4,7 @@
 
 ## 1. 문서 목적
 
-이 문서는 [train_data_dataset_defect_report.md](/home/cwj/llm-project/docs/Troubleshooting/train_data_dataset_defect_report.md)에서 정리한 연구 기반 문제의식을, 실제 `datagen` 생성 로직과 연결해 **어떤 구조가 현재 데이터 분포를 왜곡하고 있으며 이를 어떤 순서로 수정해야 하는지** 기록하기 위한 설계 문서다.
+이 문서는 [03_train_data_dataset_defect_report.md](../2_root_cause/03_train_data_dataset_defect_report.md)에서 정리한 연구 기반 문제의식을, 실제 `datagen` 생성 로직과 연결해 **어떤 구조가 현재 데이터 분포를 왜곡하고 있으며 이를 어떤 순서로 수정해야 하는지** 기록하기 위한 설계 문서다.
 
 이번 문서의 목적은 구현이 아니라 **다음 실행 턴에서 바로 작업할 수 있는 수정 계획을 저장해두는 것**이다.
 

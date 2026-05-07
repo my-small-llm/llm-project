@@ -2,23 +2,29 @@
 
 작성일: 2026-03-28
 
+## 문서 역할
+
+`2_root_cause`의 첫 번째 문서다.
+
+`1_eval_discovery/05_argument_value_failure_report.md`에서 확인한 값 오류 중 일부는 단순 모델 성능 문제가 아니라, 함수 스키마가 사용자 의도 슬롯보다 보조 제어 슬롯을 과하게 노출한 결과일 수 있다. 이 문서는 그 가설을 검토해 어떤 파라미터가 실제 핵심 슬롯이고, 어떤 파라미터가 과설계 또는 사용 조건 축소 대상인지 판정한다.
+
 ## 목적
 
 이 문서는 기존의 `schema_overdesign_parameter_review.md`와 `tool_schema_parameter_analysis.md`를 통합한 문서다.
 
-정리 관점은 `argument_value_failure_case_report.md`를 기준으로, 함수 스키마를 처음 정의할 때 넣은 파라미터 중 아래 성질을 가진 항목을 식별하는 것이다.
+정리 관점은 `05_argument_value_failure_report.md`를 기준으로, 함수 스키마를 처음 정의할 때 넣은 파라미터 중 아래 성질을 가진 항목을 식별하는 것이다.
 
 - 실제 기능 수행에 꼭 필요하지 않을 수 있음
 - 사용 용도가 모호하거나 사용자 발화에서 직접 드러나지 않음
 - 모델이 반복적으로 틀리거나 기본값으로 회귀함
 - 실서비스 가치보다 평가 오류를 더 많이 유발함
 
-즉 이 문서는 "모델이 왜 틀렸는가"보다 "스키마 자체가 과했는가"를 보는 문서다.
+즉 이 문서는 "모델이 왜 틀렸는가" 전체를 다루기보다, "스키마 자체가 과했는가", "핵심 슬롯은 유지하되 어떤 규칙 재정의가 필요한가"를 가르는 문서다.
 
 ## 기준
 
 - 기준 실험: `eval_output_500_32batch_10ep_before`
-- 기준 보고서: [argument_value_failure_case_report.md](/home/cwj/llm-project/docs/Troubleshooting/argument_value_failure_case_report.md)
+- 기준 보고서: [05_argument_value_failure_report.md](../1_eval_discovery/05_argument_value_failure_report.md)
 - 참고 스키마: [config.py](/home/cwj/llm-project/datagen/config.py)
 
 ## 한줄 결론
@@ -49,7 +55,7 @@
 
 ## 보고서 기준 핵심 근거
 
-[argument_value_failure_case_report.md](/home/cwj/llm-project/docs/Troubleshooting/argument_value_failure_case_report.md) 에서 관찰된 주요 실패는 다음과 같다.
+[05_argument_value_failure_report.md](../1_eval_discovery/05_argument_value_failure_report.md) 에서 관찰된 주요 실패는 다음과 같다.
 
 - `special_request`: 15건
 - `delivery_note`: 10건
@@ -63,6 +69,25 @@
 
 - `special_request`, `delivery_note`, `query`, `category`는 실패가 많아도 실서비스 핵심 슬롯이다.
 - 반대로 `page_size`, `page`, `at`, `is_default`는 실패 수가 다소 적더라도 "실제 가치 대비 과한 슬롯"일 가능성이 높다.
+
+특히 `special_request`와 `delivery_note`는 실패 빈도만으로 곧바로 스키마 제거 또는 축소 대상으로 보기 어렵다.
+
+- `special_request`는 원장 기준으로 값을 완전히 잘못 이해했다기보다, 한글 표현을 그대로 복원하지 못해 exact match가 깨지는 사례가 적지 않았다.
+- 예를 들어 `고수 빼기; 매운맛: 중간`을 `고수 빼고 매운맛 중간으로`로 바꿔 호출한 경우는 평가 기준에서는 실패지만, 사용자 의도 수행 관점에서는 치명적 오작동으로 보기는 어렵다.
+- `delivery_note`도 마침표 추가/삭제, 어투 변경, 표현 정규화 때문에 실패가 많이 잡히지만, 이들 중 상당수는 주문 의미 자체를 바꾸기보다 자연어를 다시 다듬는 과정에서 생긴 mismatch에 가깝다.
+
+물론 이 두 슬롯의 모든 실패가 가벼운 것은 아니다.
+
+- `special_request`는 누적 요청 일부 소실이 생기면 실제 주문 품질에 직접 영향을 줄 수 있다.
+- `delivery_note`도 일부 요청 누락은 실제 전달 실패로 이어질 수 있다.
+
+다만 현재 문서의 질문이 "어떤 파라미터가 스키마 과설계였는가"라면, 이 둘은 우선 제거할 슬롯이라기보다 "자유서술 슬롯의 원문 보존 규칙이 약한 상태"로 보는 편이 더 적절하다. 따라서 스키마 단순화의 1차 타깃은 `special_request`와 `delivery_note`보다, 실제 핵심 의도와 거리가 있고 기본값성 제어 성격이 강한 `page`, `page_size`, `at`, `is_default` 쪽에 두는 것이 맞다.
+
+같은 맥락에서 `query`, `category`도 제거 대상은 아니지만 후속 수정이 전혀 필요 없다는 뜻은 아니다.
+
+- 이 둘은 검색의 핵심 슬롯이므로 없애거나 축소할 대상은 아니다.
+- 다만 실제 실패를 보면 슬롯 자체의 필요성보다, 두 슬롯의 경계가 datagen과 GT에서 일관되지 않았다는 문제가 더 컸다.
+- 따라서 `query/category`는 스키마 단순화 대상이 아니라, 역할 경계를 다시 고정하는 규칙 재정의 대상으로 보는 편이 맞다.
 
 ## 핵심 판단 기준
 
@@ -130,6 +155,10 @@
 - 이 함수는 원래 "실제 검색 UI를 최대한 닮게" 만들려다 보니 파라미터가 많아졌다.
 - 하지만 현재 목적이 멀티턴 function calling 평가라면, `page/page_size`는 검색 이해력보다 exact match 실패만 키우는 경향이 강하다.
 - `only_open`, `sort`, `min_rating`는 완전 제거보다는 "사용자 발화에 근거가 있을 때만 등장"하도록 제한하는 것이 맞다.
+- `query`, `category`는 유지해야 하지만, 둘 사이의 역할 경계가 흔들리면 GT와 예측이 의미상 비슷해도 계속 mismatch가 난다.
+- 그래서 후속 수정에서는 `search_restaurants`를 두 축으로 나눠 다루는 것이 자연스럽다.
+  - 하나는 `page/page_size/only_open/sort/min_rating`처럼 보조 제어 슬롯을 줄이거나 사용 조건을 좁히는 축
+  - 다른 하나는 `query/category` 경계를 datagen, dataset, eval에서 일관되게 다시 정의하는 축
 
 ### 2. `get_restaurant_detail`
 
@@ -357,7 +386,7 @@
 2. `search_restaurants.only_open`
 3. `search_restaurants.min_rating`
 
-### C. 유지하고 학습을 보강할 것
+### C. 유지하되 규칙을 재정의하거나 학습을 보강할 것
 
 1. `query`
 2. `category`
@@ -386,7 +415,7 @@
 
 ## 요약
 
-현재 함수 스키마의 문제는 모든 파라미터가 많은 데 있지 않다. 핵심 의도 슬롯과 기본값성 제어 슬롯이 같은 수준으로 열려 있다는 점이 더 큰 문제다.
+현재 함수 스키마의 문제는 모든 파라미터가 많은 데 있지 않다. 핵심 의도 슬롯과 기본값성 제어 슬롯이 같은 수준으로 열려 있다는 점, 그리고 일부 핵심 슬롯의 역할 경계가 별도 규칙 없이 느슨하게 남아 있다는 점이 더 큰 문제다.
 
 요약하면 다음처럼 보는 것이 적절하다.
 
@@ -399,9 +428,20 @@
   - `search_restaurants.sort`
   - `search_restaurants.only_open`
   - `search_restaurants.min_rating`
+- 유지하되 별도 규칙 재정의가 필요할 것
+  - `search_restaurants.query`
+  - `search_restaurants.category`
 - 유지하고 학습/평가 규약을 보강할 것
   - `query`
   - `category`
   - `special_request`
   - `delivery_note`
   - 각종 ID와 `quantity`
+
+따라서 후속 수정 문서는 아래 순서로 이어지는 것이 자연스럽다.
+
+- `3_fixes/01*`
+  - `search_restaurants`를 먼저 정리한다.
+  - 이 묶음 안에서도 `page/page_size/only_open/sort/min_rating` 같은 보조 제어 슬롯 단순화와, `query/category` 경계 재정의를 함께 나눠 다룬다.
+- 그 다음 축
+  - `special_request`, `delivery_note`, 각종 ID 추적 문제는 search 스키마 축소와 별개로, 원문 보존 규칙과 상태 추적 규약 보강 문제로 다루는 편이 맞다.
