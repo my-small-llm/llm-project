@@ -20,7 +20,7 @@ BFCL은 function calling 모델의 성능을 표준화된 방식으로 비교하
 
 - [02_bfcl_single_turn.md](/home/wonjun/llm-project/docs/eval_docs/02_bfcl_single_turn.md:1)
 - [03_bfcl_multi_turn.md](/home/wonjun/llm-project/docs/eval_docs/03_bfcl_multi_turn.md:1)
-- [할루시네이션과 포멧 센시티브 3106fb04e4a18026af0bca9857300b3a.md](/home/wonjun/llm-project/docs/eval_docs/%ED%95%A0%EB%A3%A8%EC%8B%9C%EB%84%A4%EC%9D%B4%EC%85%98%EA%B3%BC%20%ED%8F%AC%EB%A9%A7%20%EC%84%BC%EC%8B%9C%ED%8B%B0%EB%B8%8C%203106fb04e4a18026af0bca9857300b3a.md:1)
+- [06_bfcl_hallucination_format_sensitivity.md](/home/wonjun/llm-project/docs/eval_docs/06_bfcl_hallucination_format_sensitivity.md:1)
 
 ## 이 문서의 의미
 

@@ -9,9 +9,17 @@ BFCL singleton은 단 한 번의 턴에서 모델이 정확한 함수 호출 구
 
 멀티턴처럼 상태 비교나 trajectory 완주 여부를 보지 않고, 출력된 함수 호출의 구조적 정확성만 본다.
 
-## 2. Singleton의 핵심 평가 기준
+## 2. 평가 방식 3가지
 
-BFCL Singleton은 사실상 JSON Schema Validation 문제로 이해할 수 있다. 조사 과정에서 정리한 핵심 기준은 아래 여섯 가지였다.
+BFCL singleton은 세 가지 방식으로 평가한다.
+
+**AST evaluation**: 모델 출력의 함수 호출을 AST로 파싱하여 함수명, required parameter, hallucination 여부, 타입/값을 엄격하게 비교한다. 사실상 JSON Schema Validation 문제다.
+
+**Executable evaluation**: 생성한 호출을 실제로 실행해서 기대 결과와 맞는지 확인한다. AST가 구조적 정확성을 보는 반면, executable은 실행 가능성과 결과까지 본다.
+
+**Relevance detection**: 호출해야 할 함수가 제공된 tool list에 없는 상황에서 아무 함수도 호출하지 않는지를 본다. tool hallucination 억제를 직접 측정한다.
+
+AST evaluation의 핵심 기준 6가지:
 
 1. 함수명 정확성
 2. 필수(required) 파라미터 존재 여부
@@ -43,10 +51,12 @@ Singleton은 기본적으로 all-or-nothing 성격이 강하다.
 
 ## 4. Task 유형 메모
 
-조사 문서에서는 singleton 안에서도 다음처럼 난이도를 나눠 이해했다.
+조사 문서에서는 singleton 안에서도 다음처럼 난이도를 나눴다.
 
-- Simple: 단일 호출
-- Parallel: 동일 함수 다회 호출
+- **Simple**: 단일 함수 1회 호출
+- **Parallel**: 동일 함수를 여러 인자로 다회 호출 (예: 서울/도쿄 날씨를 동시에 조회)
+- **Multiple**: 서로 다른 함수를 여러 개 호출 (예: 거리 계산 후 배송비 계산)
+- **Parallel + Multiple**: 동일 함수 다회 + 다른 함수 다회를 동시에 요구하는 최고 난이도
 
 현재 프로젝트는 parallel call보다 sequential call과 turn 분해가 더 중요했기 때문에, singleton 철학은 유지하되 데이터 구조에는 그대로 복제하지 않았다.
 
