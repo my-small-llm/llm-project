@@ -14,13 +14,19 @@ conventions/
   branch_naming_convention.md   브랜치 네이밍 규칙
   commit_message_convention.md  커밋 메시지 규칙
 eval/
-  eval_plan.md                  GT 히스토리 기반 평가 프레임워크 설계 근거
-  eval_metric_report.md         BFCL·Unitxt·HammerBench 메트릭 레퍼런스
-  metric_issue_resolution_workflow.md  메트릭 이슈 해결 절차
+  01_eval_problem_definition.md    왜 평가를 다시 설계했는지 설명하는 문제 정의 문서
+  02_eval_metric_report.md         BFCL·HammerBench 조사와 평가 축 학습 정리
+  03_eval_plan.md                  현재 프로젝트용 평가 프레임워크 설계 기준
+  04_metric_issue_resolution_workflow.md  평가 결과를 수정 루프로 연결하는 절차
+eval_docs/
+  01_bfcl_overview.md              BFCL 전체 평가 축 개요
+  02_bfcl_single_turn.md           BFCL single-turn 구조 정확성 평가 정리
+  03_bfcl_multi_turn.md            BFCL multi-turn 상태·경로 평가 정리
+  04_hammerbench_overview.md       HammerBench의 snapshot 기반 오류 분석 정리
+  05_bfcl_vs_hammerbench.md        BFCL과 HammerBench의 역할 차이 비교
 data/
   api_functions.md              배달 앱 함수 API 명세
   data_change_log.md            데이터셋 버전 변경 이력
-  database_schema.md            DB 스키마 문서
 references/
   harness_engineering_problem_definition.md  하네스 문제 정의
   metabase.md                   Metabase 연동 참조
@@ -46,7 +52,7 @@ Troubleshooting/                이슈 분석 및 의사결정 기록 (README.md
 
 ## 작업 흐름
 
-- 코드 변경 시 관련 문서(특히 `eval_plan.md`, `api_functions.md`)와 불일치 발생 여부 확인
+- 코드 변경 시 관련 문서(특히 `03_eval_plan.md`, `api_functions.md`)와 불일치 발생 여부 확인
 - 새 트러블슈팅 사례는 `Troubleshooting/`에 파일로 추가
 - 문서 수정 시 코드와 동기화 여부를 먼저 확인한 뒤 작성
 - `1_eval_discovery/` 문서를 정리할 때는 발견 → 하이퍼파라미터 확인 → 실제 실패 데이터 확인 순서를 유지
@@ -66,5 +72,5 @@ Troubleshooting/                이슈 분석 및 의사결정 기록 (README.md
   - "축소 대상", "규칙 재정의 대상", "학습/평가 규약 보강 대상"을 구분해서 쓴다
 - `Troubleshooting/3_fixes/` 문서는 실제 변경 결정을 담는다
   - 하나의 실패 축이라도 필요하면 여러 문서로 쪼개고, 상위 문서에서 하위 결정 문서로 왜 갈라지는지 설명한다
-- `eval_plan.md`는 `evaluations/`의 설계 기준 문서 — 평가 로직 변경 시 함께 업데이트
+- `03_eval_plan.md`는 `evaluations/`의 설계 기준 문서 — 평가 로직 변경 시 함께 업데이트
 - 문서에 코드 경로를 언급할 때는 모듈 경로(예: `datagen/tool_specs.py`) 형식 사용
