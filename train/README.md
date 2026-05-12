@@ -3,8 +3,8 @@
 Qwen2.5-7B-Instruct 모델을 **QLoRA (4-bit NF4 양자화) + SFT(Supervised Fine-Tuning)**로 학습하는 패키지입니다.
 배달앱 Function-Calling 데이터셋을 사용하여 모델이 도구 호출(tool calling) 응답을 생성하도록 미세조정합니다.
 
-학습 설정은 프로젝트 루트의 [`.env`](/home/cwj/llm-project/.env)에서 읽습니다.
-[`train/config.py`](/home/cwj/llm-project/train/config.py)가 `.env`를 자동 로드하므로, 별도 export 없이 값만 수정해도 됩니다.
+학습 설정은 프로젝트 루트의 [`.env`](.env)에서 읽습니다.
+`train/config.py`가 `.env`를 자동 로드하므로, 별도 export 없이 값만 수정해도 됩니다.
 
 ## 디렉토리 구조
 
@@ -37,7 +37,7 @@ python -m train.run
 PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128 python -m train.run
 ```
 
-실행 전에 프로젝트 루트의 [`.env`](/home/cwj/llm-project/.env)를 확인하세요.
+실행 전에 프로젝트 루트의 [`.env`](.env)를 확인하세요.
 
 ```bash
 # 예시
@@ -80,7 +80,7 @@ WANDB_NAME=qwen2.5-7b-lora-run1
 ### `config.py` — TrainConfig
 
 모든 학습 관련 설정을 `@dataclass`로 관리합니다.
-기본값은 코드에 내장되어 있지만, 실제 실행 시에는 먼저 [`.env`](/home/cwj/llm-project/.env)의 `TRAIN_*` 값을 읽어 override합니다.
+기본값은 코드에 내장되어 있지만, 실제 실행 시에는 먼저 [`.env`](.env)의 `TRAIN_*` 값을 읽어 override합니다.
 
 #### 모델 / 데이터셋
 
@@ -132,7 +132,7 @@ WANDB_NAME=qwen2.5-7b-lora-run1
 | `push_to_hub`   | `False`   | HuggingFace Hub 푸시 여부 |
 | `report_to`     | `"wandb"` | 로깅 대상 (`"wandb"`, `"none"` 등) |
 
-추가로 wandb 관련 환경변수도 [`.env`](/home/cwj/llm-project/.env)에서 관리합니다.
+추가로 wandb 관련 환경변수도 [`.env`](.env)에서 관리합니다.
 
 | 환경변수 | 예시 | 설명 |
 | -------- | ---- | ---- |
@@ -180,7 +180,7 @@ labels:     -100 (무시)                    -100 (무시)                  -100
 
 ## 설정 변경 방법
 
-대부분의 실험 설정은 [`.env`](/home/cwj/llm-project/.env)만 수정하면 됩니다.
+대부분의 실험 설정은 [`.env`](.env)만 수정하면 됩니다.
 
 ```bash
 # 예시: 출력 경로와 학습률 변경

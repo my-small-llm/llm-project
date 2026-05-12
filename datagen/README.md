@@ -357,10 +357,10 @@ datagen/
 │   ├── dataset.jsonl            # 전처리 완료 데이터셋
 │   └── samples/                 # render_txt.py 출력 디렉터리
 │
-└── eval_data/                        # 평가용 단계별 출력 파일 (git-ignored)
-    ├── gold_batch_input.jsonl        # 평가용 Batch API 입력 파일
-    ├── gold_batch_input_status.json  # 평가용 배치 상태 정보
-    ├── result_lst.json               # 결과 다운로드 원본 리스트
-    ├── dataset.jsonl                 # 전처리 완료 데이터셋
-    └── samples/                      # render_txt.py 출력 디렉터리
+└── eval_data/                        # 평가용 단계별 출력 파일
+    ├── gold_batch_input.jsonl        # 평가용 Batch API 입력 파일 (git-ignored)
+    ├── gold_batch_input_status.json  # 평가용 배치 상태 정보 (git-ignored)
+    ├── result_lst.json               # 결과 다운로드 원본 리스트 (git-ignored)
+    ├── dataset.jsonl                 # 전처리 완료 데이터셋 (git-tracked)
+    └── samples/                      # render_txt.py 출력 디렉터리 (git-ignored)
 ```

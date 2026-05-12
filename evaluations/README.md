@@ -1,7 +1,7 @@
 # evaluations
 
 GT 히스토리 기반 Function Calling 평가 파이프라인.
-eval/eval_plan.md 기준 단계별 Tool Call / Turn / Conversation 메트릭으로
+`docs/eval/03_eval_plan.md` 기준 단계별 Tool Call / Turn / Conversation 메트릭으로
 파인튜닝 모델의 tool calling 능력을 측정한다.
 
 ---
@@ -358,6 +358,6 @@ vLLM 추론 + 메트릭 계산 + 결과 저장 실행기.
 
 ## 참고
 
-- `eval/eval_plan.md` — 평가 프레임워크 설계 및 GT 히스토리 방식 채택 근거
-- `docs/eval_metric_report.md` — BFCL·Unitxt·HammerBench 메트릭 레퍼런스
-- `eval_data/dataset.jsonl` — 평가 기준 데이터 (40개 대화)
+- `docs/eval/03_eval_plan.md` — 평가 프레임워크 설계 및 GT 히스토리 방식 채택 근거
+- `docs/eval/02_eval_metric_report.md` — BFCL·Unitxt·HammerBench 메트릭 레퍼런스
+- `eval_data/dataset.jsonl` — 평가 기준 데이터 (53개 대화, 430 샘플)

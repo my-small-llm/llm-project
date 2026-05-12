@@ -47,7 +47,7 @@ python -m datavalidator.validate \
 ### 출력 예시
 
 ```
-검증 시작: /home/khh/workspace/llm-project/synthetic_data/samples
+검증 시작: /home/wonjun/llm-project/train_data/samples
 
   [PASS] sample_0002.txt
   [FAIL] sample_0001.txt  (2건)
