@@ -24,6 +24,8 @@ render_txt.py        Step 5: dataset.jsonl → 개별 .txt 파일
 push_to_hub.py       Step 7: 데이터셋 HuggingFace Hub 업로드
 retry_failed_batch.py   실패 배치 요청 재추출
 strip_search_pagination.py  페이지네이션 파라미터 제거 스크립트
+dataset_version_history.md  데이터셋 버전 변경 이력 메모
+eval_strategy_comparison.md  평가 전략 비교 분석 문서
 ```
 
 ## 작업 흐름

@@ -29,8 +29,8 @@ data/
   data_change_log.md            데이터셋 버전 변경 이력
 references/
   harness_engineering_problem_definition.md  하네스 문제 정의
-  metabase.md                   Metabase 연동 참조
   qwen3_chat-template.jinja     Qwen3 chat template 참조용
+result_report.md                QLoRA 파인튜닝 최종 성능 결과 보고서
 Troubleshooting/                이슈 분석 및 의사결정 기록 (README.md에 읽기 순서 정리)
   1_eval_discovery/             평가 지표 하락 발견 및 실패 케이스 분석
     README.md                   1단계 문서 읽기 순서와 단계 경계
