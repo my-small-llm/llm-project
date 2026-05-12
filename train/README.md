@@ -16,7 +16,7 @@ train/
 ├── data.py                 # 데이터셋 로드 및 train/test 분할
 ├── collator.py             # ChatMLCollator — assistant 응답만 레이블링
 ├── run.py                  # 학습 실행 스크립트 (CLI 진입점)
-├── vram_analysis.md        # VRAM 메모리 분석 문서 (LoRA vs QLoRA 비교)
+├── vram_analysis.md        # CUDA OOM 원인 분석 및 allocator 튜닝 기록 (LoRA vs QLoRA 비교 포함)
 ├── data_analysis.ipynb     # 데이터셋 분포 분석 노트북
 
 ```
@@ -54,6 +54,8 @@ WANDB_NAME=qwen2.5-7b-lora-run1
 
 `Qwen/Qwen2.5-7B-Instruct`를 긴 시퀀스로 학습할 때는 PyTorch allocator의 reserved 메모리 단편화 때문에 OOM이 날 수 있습니다.
 그 경우 위의 `PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128` 설정을 함께 사용하는 것을 권장합니다.
+
+> 배경 및 원인 분석: [vram_analysis.md](vram_analysis.md)
 
 ## 학습 파이프라인 요약
 
