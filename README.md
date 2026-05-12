@@ -22,7 +22,6 @@ datavalidator/  생성 데이터 검증
 dataanalyzer/   데이터셋 품질·분포 분석 및 시각화
 evaluations/    vLLM·OpenAI API 추론 + 7단계 메트릭 평가
 train/          QLoRA SFT 학습 파이프라인
-database/       schema.sql, seed.sql (정적 참조용)
 docs/           설계 문서, 메트릭 리포트, 트러블슈팅 기록
 eval_data/      평가 기준 gold 데이터셋 (git-tracked)
 ```
