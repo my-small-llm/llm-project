@@ -3,6 +3,26 @@
 배달 앱 AI 상담사를 위한 멀티턴 Function Calling 파인튜닝 파이프라인.
 OpenAI Batch API로 학습 데이터를 생성하고, Qwen2.5-7B-Base를 QLoRA SFT로 학습한 뒤 GT 히스토리 기반 7단계 메트릭으로 tool calling 정확도를 평가한다.
 
+## 성능 결과
+
+> 평가셋: `eval_data/dataset.jsonl` (430 샘플 / 236 평가 턴 / 53 대화)
+
+| 지표 | Base | Fine-tuned | GPT-4o | Δ (vs Base) |
+|---|---:|---:|---:|---:|
+| argument_value_acc | 56.91% | **82.00%** | 64.08% | **+25.09%p** |
+| turn_level_accuracy | 57.63% | **72.03%** | 59.32% | **+14.40%p** |
+| conversation_success_rate | 32.08% | **33.96%** | 26.42% | +1.89%p |
+| error_cascade_rate | 54.08% | **36.51%** | 43.01% | **-17.57%p** |
+| relevance_detection_acc | 86.28% | **90.23%** | 79.07% | +3.95%p |
+| function_matching_acc | 90.51% | **93.75%** | 99.04% | +3.24%p |
+
+**핵심 결과:**
+- 파라미터 값 정확도(argument_value_acc) Base 대비 +25.09%p, GPT-4o 대비 +17.92%p 우위
+- 턴 단위 정확도(turn_level_accuracy) GPT-4o 대비 +12.71%p 우위
+- 오류 연쇄율(error_cascade_rate) Base(-17.57%p), GPT-4o(-6.50%p) 대비 모두 낮음
+
+상세 분석: [`docs/result_report.md`](docs/result_report.md)
+
 ## 파이프라인 구조
 
 ```
