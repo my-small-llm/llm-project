@@ -1,18 +1,40 @@
-# Custom Add
-# *.ipynb
+# Notes and local scratch files
 memo.md
 .bak
-CLAUDE.md
+.omc
+*anal
+
+# Generated / local data artifacts
+mini_samples_n55
+synthetic_data
+before_modify/
+train_data*
+eval_output*
+eval_output_api
+eval_data.tar.gz
+
+# Track only the eval dataset JSONL, ignore the rest of eval_data
+/eval_data/**
+!/eval_data/
+!/eval_data/dataset.jsonl
+
+# Project outputs and local scripts
+outputs/
+*.sh
+scripts/
+datagen/output
+trained_models
+wandb/
 
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-dist/
-build/
 *.egg
+build/
+dist/
 
-# Virtual environment
+# Virtual environments
 venv/
 .venv/
 env/
@@ -23,19 +45,27 @@ env/
 *.swp
 *.swo
 
-# Jupyter Notebook
+# Jupyter
 .ipynb_checkpoints/
 
 # Environment variables
 .env
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Project specific
-outputs/checkpoints/
-outputs/logs/
+# Project-specific generated data
 data/raw/
 data/processed/
 experiments/clone_*.py
+
+# Legacy eval output directories
+eval_output_500_2batch_3ep
+eval_output_500_2batch_3ep_highLR
+eval_output_500_32batch_10ep
+eval_output_my_model
+eval_output_batch32-10ep
+eval_output_500_32batch_10ep_before
+
+logs/
