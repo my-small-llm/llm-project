@@ -1,18 +1,21 @@
 """
 Function Calling 학습 데이터 생성을 위한 설정 및 상수.
 
-- user_ids, 시나리오, tools, tools_return_format 등
+- user_ids, 시나리오, 골드 카테고리 등
+- 공통 함수 스펙은 datagen.tool_specs 에서 import
 - 유틸 함수: generate_random_date, pick_random_yn
 """
 
 import random
 from datetime import datetime, timedelta
 
+from datagen.tool_specs import tools, tools_return_format
+
 
 # ================================================================
 # 모델 설정
 # ================================================================
-MODEL = "gpt-5-mini"
+MODEL = "gpt-5.4-mini-2026-03-17"
 
 
 # ================================================================
@@ -167,420 +170,13 @@ def pick_random_yn() -> str:
 
 
 # ================================================================
-# 3. 함수 명세 (OpenAI Function Calling tools 형식)
-# ================================================================
-
-tools = [
-    {
-        "type": "function",
-        "name": "search_restaurants",
-        "description": "식당 목록을 검색/필터/정렬하여 반환합니다. 식당명이나 메뉴명으로 검색하거나, 카테고리·최소 평점·영업 여부로 필터링할 수 있습니다. 검색 결과는 백엔드 정책에 따라 항상 1페이지부터 정해진 개수만 반환됩니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "식당명 또는 메뉴명 검색 키워드 (예: '피자', '치킨')"
-                },
-                "category": {
-                    "type": "string",
-                    "description": "음식 카테고리 필터 (예: '한식', '중식', '피자')"
-                },
-                "min_rating": {
-                    "type": "number",
-                    "description": "고객이 '4.5 이상', '최소 4.3'처럼 숫자 기준을 명시한 경우에만 사용하는 최소 평점 필터입니다. '평점 높은 곳'처럼 모호한 표현만 있으면 이 파라미터는 생략합니다."
-                },
-                "only_open": {
-                    "type": "boolean",
-                    "description": "고객이 '영업 중인 곳만', '지금 열려 있는 곳만'처럼 명시적으로 요청한 경우에만 true를 사용합니다. 영업 여부를 특정하지 않으면 이 파라미터는 생략합니다.",
-                    "default": False
-                },
-                "sort": {
-                    "type": "string",
-                    "description": "고객이 평점순, 관련도순, 배달비 낮은 순처럼 정렬 기준을 명시한 경우에만 사용합니다. 정렬을 특정하지 않으면 이 파라미터는 생략하며, 백엔드는 기본적으로 별점 높은 순으로 반환합니다.",
-                    "default": "rating"
-                }
-            },
-            "required": [],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "get_restaurant_detail",
-        "description": "특정 식당의 기본 정보(이름, 카테고리, 평점, 영업 여부)와 메뉴 목록을 반환합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "restaurant_id": {
-                    "type": "string",
-                    "description": "조회할 식당의 UUID"
-                },
-                "at": {
-                    "type": "string",
-                    "description": "영업 여부를 판단할 기준 시각 (ISO 8601 형식, 생략 시 현재 시각)"
-                }
-            },
-            "required": ["restaurant_id"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "upsert_address",
-        "description": "배송지를 새로 등록하거나 기존 배송지를 수정합니다. address_id를 전달하면 수정, 생략하면 신규 생성합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "배송지를 소유한 사용자 UUID"
-                },
-                "address_id": {
-                    "type": "string",
-                    "description": "수정할 배송지 UUID (신규 생성 시 생략)"
-                },
-                "recipient_name": {
-                    "type": "string",
-                    "description": "수령인 이름"
-                },
-                "phone": {
-                    "type": "string",
-                    "description": "수령인 연락처"
-                },
-                "line1": {
-                    "type": "string",
-                    "description": "기본 주소"
-                },
-                "line2": {
-                    "type": "string",
-                    "description": "상세 주소 (동·호수 등)"
-                },
-                "is_default": {
-                    "type": "boolean",
-                    "description": "기본 배송지 여부",
-                    "default": False
-                },
-                "gate_password": {
-                    "type": "string",
-                    "description": "공동현관 비밀번호"
-                },
-                "delivery_note": {
-                    "type": "string",
-                    "description": "배달 요청 사항"
-                }
-            },
-            "required": ["user_id", "recipient_name", "phone", "line1"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "list_addresses",
-        "description": "사용자의 저장된 배송지 목록을 반환합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "배송지를 조회할 사용자 UUID"
-                }
-            },
-            "required": ["user_id"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "get_cart",
-        "description": "사용자의 현재 장바구니를 조회합니다. 담긴 메뉴 항목, 수량, 소계 금액 등을 반환합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "장바구니를 조회할 사용자 UUID"
-                }
-            },
-            "required": ["user_id"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "add_to_cart",
-        "description": "장바구니에 메뉴 항목을 추가합니다. 1카트=1식당 제약이 있으며, 다른 식당 메뉴 추가 시 기존 카트가 교체될 수 있습니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "장바구니 소유 사용자 UUID"
-                },
-                "restaurant_id": {
-                    "type": "string",
-                    "description": "메뉴가 속한 식당 UUID"
-                },
-                "menu_item_id": {
-                    "type": "string",
-                    "description": "추가할 메뉴 항목 UUID"
-                },
-                "quantity": {
-                    "type": "integer",
-                    "description": "추가 수량 (1 이상)",
-                    "minimum": 1
-                },
-                "special_request": {
-                    "type": "string",
-                    "description": "해당 항목에 대한 요청 사항 (예: '소스 추가')"
-                }
-            },
-            "required": ["user_id", "restaurant_id", "menu_item_id", "quantity"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "update_cart_item",
-        "description": "장바구니의 특정 항목 수량 또는 요청 사항을 수정합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "장바구니 소유 사용자 UUID"
-                },
-                "cart_item_id": {
-                    "type": "string",
-                    "description": "수정할 장바구니 항목 UUID"
-                },
-                "quantity": {
-                    "type": "integer",
-                    "description": "변경할 수량 (생략 시 기존 수량 유지)",
-                    "minimum": 1
-                },
-                "special_request": {
-                    "type": "string",
-                    "description": "변경할 요청 사항 (생략 시 기존 값 유지)"
-                }
-            },
-            "required": ["user_id", "cart_item_id"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "remove_cart_items",
-        "description": "장바구니에서 지정한 항목들을 삭제합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "장바구니 소유 사용자 UUID"
-                },
-                "cart_item_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "삭제할 장바구니 항목 UUID 목록"
-                }
-            },
-            "required": ["user_id", "cart_item_ids"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "prepare_checkout",
-        "description": "주문 생성 전 최종 금액을 계산하고 스냅샷을 생성합니다. 카트와 배송지를 조회하여 subtotal·total을 계산합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "주문할 사용자 UUID"
-                },
-                "address_id": {
-                    "type": "string",
-                    "description": "배송에 사용할 배송지 UUID"
-                },
-                "delivery_note": {
-                    "type": "string",
-                    "description": "추가 배달 요청 사항"
-                }
-            },
-            "required": ["user_id", "address_id"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "place_order",
-        "description": "주문을 확정하고 order_items를 생성합니다. prepare_checkout에서 받은 스냅샷을 기반으로 주문을 INSERT하고 카트를 비웁니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "snapshot": {
-                    "type": "object",
-                    "description": "prepare_checkout이 반환한 CheckoutSnapshot 객체"
-                },
-                "payment_method": {
-                    "type": "string",
-                    "description": "결제 수단 (예: 'card', 'kakao')"
-                },
-                "pg_id": {
-                    "type": "string",
-                    "description": "PG사 거래 ID (선택)"
-                }
-            },
-            "required": ["snapshot", "payment_method"],
-            "additionalProperties": False
-        }
-    },
-    {
-        "type": "function",
-        "name": "get_order_status",
-        "description": "주문 상태와 결제 상태를 조회합니다. 주문 진행 단계(pending/paid/preparing/delivering/delivered/cancelled)와 결제 상태를 반환합니다.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "user_id": {
-                    "type": "string",
-                    "description": "주문 소유 사용자 UUID"
-                },
-                "order_id": {
-                    "type": "string",
-                    "description": "조회할 주문 UUID"
-                }
-            },
-            "required": ["user_id", "order_id"],
-            "additionalProperties": False
-        }
-    },
-]
-
-
-# ================================================================
-# 4. 각 함수의 반환 포맷
-# ================================================================
-
-tools_return_format = [
-    {
-        "function_name": "search_restaurants",
-        "result_columns_format": {
-            "items": "list(dict[restaurant_id: string, name: string, category: string, rating_avg: float, is_open: boolean, min_order_amount: integer])",
-            "pagination": "dict[page: integer, page_size: integer, total_items: integer, total_pages: integer]",
-            "applied_filters": "dict[query: string|null, category: string|null, min_rating: float|null, only_open: boolean, sort: string]",
-        },
-    },
-    {
-        "function_name": "get_restaurant_detail",
-        "result_columns_format": {
-            "restaurant_id": "string",
-            "name": "string",
-            "category": "string",
-            "rating_avg": "float",
-            "is_open": "boolean",
-            "checked_at": "string (ISO 8601)",
-            "menus": "list(dict[menu_item_id: string, name: string, price: integer, is_available: boolean])",
-        },
-    },
-    {
-        "function_name": "upsert_address",
-        "result_columns_format": {
-            "return": "string (생성/수정된 배송지 UUID)",
-        },
-    },
-    {
-        "function_name": "list_addresses",
-        "result_columns_format": {
-            "return": "list(dict[address_id: string, user_id: string, recipient_name: string, phone: string, line1: string, line2: string|null, is_default: boolean])",
-        },
-    },
-    {
-        "function_name": "get_cart",
-        "result_columns_format": {
-            "return": "dict[cart_id: string, user_id: string, restaurant_id: string, items: list(dict[cart_item_id: string, menu_item_id: string, menu_name: string, quantity: integer, unit_price_snapshot: integer, special_request: string|null, line_total: integer]), item_count: integer, subtotal: integer] | null (장바구니가 없으면 null 반환)",
-        },
-    },
-    {
-        "function_name": "add_to_cart",
-        "result_columns_format": {
-            "cart_id": "string",
-            "user_id": "string",
-            "restaurant_id": "string",
-            "items": "list(dict[cart_item_id: string, menu_item_id: string, menu_name: string, quantity: integer, unit_price_snapshot: integer, special_request: string|null, line_total: integer])",
-            "item_count": "integer",
-            "subtotal": "integer",
-        },
-    },
-    {
-        "function_name": "update_cart_item",
-        "result_columns_format": {
-            "cart_id": "string",
-            "user_id": "string",
-            "restaurant_id": "string",
-            "items": "list(dict[cart_item_id: string, menu_item_id: string, menu_name: string, quantity: integer, unit_price_snapshot: integer, special_request: string|null, line_total: integer])",
-            "item_count": "integer",
-            "subtotal": "integer",
-        },
-    },
-    {
-        "function_name": "remove_cart_items",
-        "result_columns_format": {
-            "cart_id": "string",
-            "user_id": "string",
-            "restaurant_id": "string",
-            "removed_cart_item_ids": "list(string)",
-            "items": "list(dict[cart_item_id: string, menu_item_id: string, menu_name: string, quantity: integer, unit_price_snapshot: integer, special_request: string|null, line_total: integer])",
-            "item_count": "integer",
-            "subtotal": "integer",
-        },
-    },
-    {
-        "function_name": "prepare_checkout",
-        "result_columns_format": {
-            "user_id": "string",
-            "cart_id": "string",
-            "restaurant_id": "string",
-            "address_id": "string",
-            "delivery_recipient_name": "string",
-            "delivery_phone": "string",
-            "delivery_line1": "string",
-            "delivery_line2": "string|null",
-            "delivery_note": "string|null",
-            "items": "list(dict[cart_item_id: string, menu_item_id: string, menu_name: string, quantity: integer, unit_price_snapshot: integer, special_request: string|null, line_total: integer])",
-            "subtotal": "integer",
-            "total": "integer",
-        },
-    },
-    {
-        "function_name": "place_order",
-        "result_columns_format": {
-            "return": "string (생성된 주문 UUID)",
-        },
-    },
-    {
-        "function_name": "get_order_status",
-        "result_columns_format": {
-            "order_id": "string",
-            "status": "string (pending|paid|preparing|delivering|delivered|cancelled)",
-            "payment_status": "string (pending|paid|failed|cancelled|refunded)",
-            "paid_at": "string (ISO 8601)|null",
-            "created_at": "string (ISO 8601)",
-        },
-    },
-]
-
-
-# ================================================================
 # 평가 전용 골드 데이터셋 카테고리
 # ================================================================
 
 GOLD_CATEGORIES = {
     "단순/연속 검색": {
         "count": 10,
-        "instruction": "고객이 필터나 검색어를 계속 바꿔가며 'search_restaurants'를 여러 번 반복 호출하는 대화를 생성하십시오. 생성할 때마다 [한식, 중식, 일식, 분식, 카페, 야식] 등 다양한 도메인과 상황을 무작위로 설정하세요. 고객의 어투도 다양하게(존댓말, 반말, 급한 어투 등) 변형하고, 검색 조건(최소 평점, 영업 여부, 정렬 기준 등)을 다채롭게 요구하게 하십시오. 검색 이외에 장바구니나 결제는 시도하지 마십시오."
+        "instruction": "고객이 필터나 검색어를 계속 바꿔가며 'search_restaurants'를 여러 번 반복 호출하는 대화를 생성하십시오. 생성할 때마다 [한식, 중식, 일식, 분식, 카페, 야식] 등 다양한 도메인과 상황을 무작위로 설정하세요. 고객의 어투도 다양하게(존댓말, 반말, 급한 어투 등) 변형하고, 검색 조건(최소 평점, 영업 여부, 정렬 기준 등)을 다채롭게 요구하게 하십시오. 단, query/category 규칙은 반드시 지키십시오: 고정 taxonomy(한식/중식/일식/분식/카페/야식)는 category에만, 메뉴명/요리명/브랜드명/식당명은 query에만 넣으십시오. 같은 의미를 query와 category에 중복해서 넣지 말고, 사용자가 새 검색 조건으로 바꾸면 이전 검색어/카테고리는 필요할 때만 유지하고 그렇지 않으면 reset하십시오. 또한 only_open 규칙도 반드시 지키십시오: 사용자가 '영업 중', '지금 열려 있는', '문 연 곳만'처럼 직접 말할 때만 only_open=true를 사용하고, 영업 여부 언급이 없으면 only_open은 생략하십시오. 사용자가 조건 일부만 추가하거나 변경하는 경우에는 기존 only_open=true를 유지할 수 있지만, 영업 조건을 바꾸거나 해제했거나 새 검색으로 전환한 것이 분명하면 only_open을 다시 구성하십시오. min_rating 규칙도 반드시 지키십시오: 사용자가 '4.5 이상', '최소 4.3', '별점 4점 넘는 곳'처럼 숫자 기준을 직접 말할 때만 min_rating을 사용하고, '평점 높은 곳', '추천해줘', '인기 많은 곳'처럼 모호한 선호만 있으면 min_rating은 생성하지 마십시오. 사용자가 조건 일부만 추가하거나 변경하는 경우에는 기존 min_rating을 유지할 수 있지만, 숫자 기준을 바꾸거나 해제했거나 새 검색으로 전환한 것이 분명하면 min_rating을 다시 구성하십시오. sort 규칙도 반드시 지키십시오: 사용자가 '평점순', '별점 높은 순', '관련도순', '배달비 낮은 순'처럼 직접 말할 때만 sort를 사용하고, 정렬 기준을 말하지 않으면 sort는 생략하십시오. 특히 '평점 높은 순', '별점순'은 sort=rating으로 처리하고 숫자 기준이 직접 없으면 min_rating을 추가하지 마십시오. 사용자가 조건 일부만 추가하거나 변경하는 경우에는 기존 sort를 유지할 수 있지만, 정렬 기준을 바꾸거나 해제했거나 새 검색으로 전환한 것이 분명하면 sort를 다시 구성하십시오. 검색 이외에 장바구니나 결제는 시도하지 마십시오."
     },
     "메뉴 조회": {
         "count": 10,
@@ -592,7 +188,7 @@ GOLD_CATEGORIES = {
     },
     "주문 이력/상태": {
         "count": 10,
-        "instruction": "주문 정보('get_order_status')를 조회하는 시나리오를 생성하십시오. 주의: 현재 도구 명세에는 주문 목록 조회(list_orders) 기능이 없고 get_order_status는 반드시 'order_id'를 요구합니다. 따라서 고객이 '주문번호 12345번 배달 출발했나요?'라고 번호를 명시하거나, '언제 와요?'라고 물어서 AI가 '주문 번호를 알려주세요'라고 되묻는 등 도구의 제약을 훌륭하게 극복하는 대화 흐름을 만드십시오."
+        "instruction": "주문 정보('get_order_status')를 조회하는 시나리오를 생성하십시오. 주의: 현재 도구 명세에는 주문 목록 조회(list_orders) 기능이 없고 get_order_status는 반드시 조회 가능한 주문 UUID('order_id')가 이미 확보된 경우에만 호출합니다. 따라서 첫 대화에서 고객이 '언제 와요?', '배달 출발했나요?'처럼 묻지만 주문번호를 말하지 않으면 AI는 먼저 주문번호를 요청하는 clarification text를 생성해야 합니다. 또한 고객이 '주문번호 12345번'처럼 UUID가 아닌 값을 말하면 바로 tool을 호출하지 말고 앱에 표시된 전체 주문 UUID를 다시 요청하는 흐름을 만드십시오. 반대로 고객이 실제 주문 UUID를 제공하고 핵심 요청이 상태 조회인 경우에만 get_order_status를 호출하십시오. 환불/보상/버그 신고가 핵심 요청인 경우에는 주문번호가 함께 있어도 상태 조회 tool보다 정책/안내 text가 우선입니다."
     },
     "주문 처리": {
         "count": 10,
@@ -608,6 +204,6 @@ GOLD_CATEGORIES = {
     },
     "엣지 케이스": {
         "count": 10,
-        "instruction": "고객의 입력이 극도로 비정형적인 엣지 케이스 대화를 생성하십시오. 심각한 오타('치긴 벅고십다', '짲장묜 배달'), 중간에 지시 번복('피자 줘... 아 아니 막국수로 변경'), 아주 모호한 지시('제일 싼거 아무거나', '다들 많이 먹는걸로 줘') 등 모델의 추론 능력을 한계까지 시험하는 다양하고 기상천외한 상황을 매번 새롭게 만들어 내십시오."
+        "instruction": "고객의 입력이 극도로 비정형적인 엣지 케이스 대화를 생성하십시오. 심각한 오타('치긴 벅고십다', '짲장묜 배달'), 중간에 지시 번복('피자 줘... 아 아니 막국수로 변경'), 아주 모호한 지시('제일 싼거 아무거나', '다들 많이 먹는걸로 줘') 등 모델의 추론 능력을 한계까지 시험하는 다양하고 기상천외한 상황을 매번 새롭게 만들어 내십시오. 단, search_restaurants에서는 query/category 규칙을 엄격히 지키십시오: 고정 taxonomy(한식/중식/일식/분식/카페/야식)는 category, 메뉴명/요리명/브랜드명/식당명은 query에 넣고, 마지막으로 정정된 의도만 반영하십시오. 또한 only_open은 사용자가 영업 중 조건을 직접 말할 때만 true로 넣고, 그렇지 않으면 생략하십시오. 조건 일부만 바꾸는 경우에는 기존 only_open=true를 유지할 수 있지만, 영업 조건을 바꾸거나 해제했거나 새 검색으로 전환한 것이 분명하면 다시 구성하십시오. min_rating도 사용자가 '4.5 이상', '최소 4.3'처럼 숫자 기준을 직접 말할 때만 넣고, '평점 높은 곳', '추천해줘', '인기 많은 곳'처럼 모호한 선호만 있으면 생성하지 마십시오. 조건 일부만 바꾸는 경우에는 기존 min_rating을 유지할 수 있지만, 숫자 기준을 바꾸거나 해제했거나 새 검색으로 전환한 것이 분명하면 다시 구성하십시오. sort도 사용자가 정렬 기준을 직접 말할 때만 넣고, 그렇지 않으면 생략하십시오. 특히 '평점 높은 순', '별점순'은 sort=rating으로 처리하고 숫자 기준이 직접 없으면 min_rating은 추가하지 마십시오. 조건 일부만 바꾸는 경우에는 기존 sort를 유지할 수 있지만, 정렬 기준을 바꾸거나 해제했거나 새 검색으로 전환한 것이 분명하면 다시 구성하십시오."
     }
 }

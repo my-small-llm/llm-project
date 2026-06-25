@@ -3,8 +3,8 @@
 Qwen2.5-7B-Instruct 모델을 **QLoRA (4-bit NF4 양자화) + SFT(Supervised Fine-Tuning)**로 학습하는 패키지입니다.
 배달앱 Function-Calling 데이터셋을 사용하여 모델이 도구 호출(tool calling) 응답을 생성하도록 미세조정합니다.
 
-학습 설정은 프로젝트 루트의 [`.env`](/home/cwj/llm-project/.env)에서 읽습니다.
-[`train/config.py`](/home/cwj/llm-project/train/config.py)가 `.env`를 자동 로드하므로, 별도 export 없이 값만 수정해도 됩니다.
+학습 설정은 프로젝트 루트의 [`.env`](.env)에서 읽습니다.
+`train/config.py`가 `.env`를 자동 로드하므로, 별도 export 없이 값만 수정해도 됩니다.
 
 ## 디렉토리 구조
 
@@ -16,7 +16,7 @@ train/
 ├── data.py                 # 데이터셋 로드 및 train/test 분할
 ├── collator.py             # ChatMLCollator — assistant 응답만 레이블링
 ├── run.py                  # 학습 실행 스크립트 (CLI 진입점)
-├── vram_analysis.md        # VRAM 메모리 분석 문서 (LoRA vs QLoRA 비교)
+├── vram_analysis.md        # CUDA OOM 원인 분석 및 allocator 튜닝 기록 (LoRA vs QLoRA 비교 포함)
 ├── data_analysis.ipynb     # 데이터셋 분포 분석 노트북
 
 ```
@@ -37,7 +37,7 @@ python -m train.run
 PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128 python -m train.run
 ```
 
-실행 전에 프로젝트 루트의 [`.env`](/home/cwj/llm-project/.env)를 확인하세요.
+실행 전에 프로젝트 루트의 [`.env`](.env)를 확인하세요.
 
 ```bash
 # 예시
@@ -54,6 +54,8 @@ WANDB_NAME=qwen2.5-7b-lora-run1
 
 `Qwen/Qwen2.5-7B-Instruct`를 긴 시퀀스로 학습할 때는 PyTorch allocator의 reserved 메모리 단편화 때문에 OOM이 날 수 있습니다.
 그 경우 위의 `PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128` 설정을 함께 사용하는 것을 권장합니다.
+
+> 배경 및 원인 분석: [vram_analysis.md](vram_analysis.md)
 
 ## 학습 파이프라인 요약
 
@@ -80,7 +82,7 @@ WANDB_NAME=qwen2.5-7b-lora-run1
 ### `config.py` — TrainConfig
 
 모든 학습 관련 설정을 `@dataclass`로 관리합니다.
-기본값은 코드에 내장되어 있지만, 실제 실행 시에는 먼저 [`.env`](/home/cwj/llm-project/.env)의 `TRAIN_*` 값을 읽어 override합니다.
+기본값은 코드에 내장되어 있지만, 실제 실행 시에는 먼저 [`.env`](.env)의 `TRAIN_*` 값을 읽어 override합니다.
 
 #### 모델 / 데이터셋
 
@@ -132,7 +134,7 @@ WANDB_NAME=qwen2.5-7b-lora-run1
 | `push_to_hub`   | `False`   | HuggingFace Hub 푸시 여부 |
 | `report_to`     | `"wandb"` | 로깅 대상 (`"wandb"`, `"none"` 등) |
 
-추가로 wandb 관련 환경변수도 [`.env`](/home/cwj/llm-project/.env)에서 관리합니다.
+추가로 wandb 관련 환경변수도 [`.env`](.env)에서 관리합니다.
 
 | 환경변수 | 예시 | 설명 |
 | -------- | ---- | ---- |
@@ -180,7 +182,7 @@ labels:     -100 (무시)                    -100 (무시)                  -100
 
 ## 설정 변경 방법
 
-대부분의 실험 설정은 [`.env`](/home/cwj/llm-project/.env)만 수정하면 됩니다.
+대부분의 실험 설정은 [`.env`](.env)만 수정하면 됩니다.
 
 ```bash
 # 예시: 출력 경로와 학습률 변경
@@ -199,6 +201,17 @@ TRAIN_NUM_EPOCHS=5
 - `TRAIN_GRADIENT_ACCUMULATION_STEPS`
 - `TRAIN_LEARNING_RATE`
 - `TRAIN_REPORT_TO`
+
+## 참고할 학습 계획
+
+| eff batch | LR     | LoRA rank (r) | alpha | max_grad_norm | epoch | 왜 이렇게 설정하나 (핵심 이유) |
+| --------- | ------ | ------------- | ----- | ------------- | ----- | ------------------------------ |
+| 1         | 2.5e-4 | 64            | 32    | 0.7           | 3     | batch가 매우 작아 noise가 큼 → LR을 크게 해서 학습 진행 속도 확보 / noise로 튀는 step 많으므로 clipping 완화(0.7) / rank는 capacity 유지용 (noise 환경에서 rank 영향 거의 없음) |
+| 2         | 2e-4   | 64            | 32    | 0.5           | 4     | 여전히 noisy → LR 높게 유지 / batch=1보다 안정적이라 clipping 약간 강화 / alpha로 update scale 확보 / 빠른 수렴용 |
+| 4         | 1.5e-4 | 64            | 32    | 0.5           | 5     | noise 감소 시작 → LR 줄여 overshoot 방지 / 아직 exploration 필요해서 alpha 유지 / clipping 안정 유지 |
+| 8         | 1.2e-4 | 64            | 64    | 0.5           | 6     | gradient 안정화 → LR 더 낮춤 / 대신 alpha 증가로 update scale 보정 / rank는 그대로 (성능 영향 적음) |
+| 16        | 1e-4   | 64            | 64    | 0.5           | 8     | 안정적인 gradient → LR standard 값 / alpha로 충분한 update 확보 / clipping 안정 유지 / production baseline |
+| 32        | 8e-5   | 64            | 64    | 0.7           | 10    | gradient 거의 deterministic → LR 낮춰 정밀 수렴 / batch 커서 update 약해지므로 alpha 유지 / 긴 학습 필요 / 드물게 큰 grad 나올 수 있어 clipping 완화 |
 
 ## wandb 메모
 

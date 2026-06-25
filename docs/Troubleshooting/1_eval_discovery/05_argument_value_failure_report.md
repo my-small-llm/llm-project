@@ -1,30 +1,45 @@
-# argument_value_acc 실패 사례 보고서
+# `argument_value` 실패 사례 분석
 
 작성일: 2026-03-24
 
+## 문서 역할
+
+`1_eval_discovery`의 다섯 번째 문서이자 `argument_value` 실패 분석의 기준 문서다.
+
+4번 문서에서 함수 선택 실패를 별도 분리했다. 이 문서에서는 전체 실패 원장에서 함수 선택까지는 맞았지만 마지막 값 비교에서 실패한 케이스를 다시 모아 본다.
+
+- `argument_value` 전체 문제 지도와 우선순위를 정리한다.
+- 대표 실패 축과 우선 수정 대상을 정리한다.
+- 기준 질문: 함수 선택은 맞췄지만 값 비교에서 실패한 케이스는 어떤 파라미터와 대화에 집중되는가?
+- 이 문서의 범위: `argument_value` 실패의 빈도, 대표 샘플, 개선 후보 정리
+- 이 문서에서 하지 않는 것: 최종 수정안 결정
+- 다음 단계: `../2_root_cause/`
+
+원본 turn 단위 상세 산출물은 아래 경로를 기준으로 다시 확인할 수 있다.
+
+- `eval_output/before_eval_dataset/qwen-2.5-7b-function-calling_batch2_data_v2_before/tool_failures_with_dialogue.md`
+
 ## 분석 기준
 
-- 기준 실험: `eval_output_500_32batch_10ep_before`
-- 기준 문서: `docs/model_comparison_multiway.md`
-- 기준 지표: `argument_value_acc = 70.72% (128 / 181)`
-- 실패 건수: `53` step
-- 분석 범위: `argument_value_acc` 분모에 포함된 step만 대상
-  - 즉 relevance / format / function / hallucination / required / type 단계는 통과했지만 마지막 값 비교에서 실패한 케이스만 포함
+- 전체 tool-level 실패: `98`건
+- 이 중 `argument_value` 실패: `41`건
+- 분석 범위: `tool_failures_with_dialogue.md`에서 `argument_value`로 표시된 step만 대상
+- 즉 relevance / format / function / hallucination / required / type 단계는 통과했지만 마지막 값 비교에서 실패한 케이스만 포함
 
 ## 한줄 결론
 
-`argument_value_acc`의 병목은 함수 선택이 아니라 값 보존이다. 특히 검색 필터 재구성, `special_request` 누적 보존, `delivery_note` 비변형 복제가 현재 성능을 가장 많이 깎고 있다.
+`argument_value` 실패의 병목은 함수 선택이 아니라 값 보존이다. 전체 실패 원장 기준으로 보면 특히 `search_restaurants` 필터 복원, `special_request` 보존, `delivery_note` 문자열 보존이 가장 반복적으로 나타난다.
 
 ## 핵심 요약
 
 - 가장 큰 실패 축은 `search_restaurants` 값 복원 오류다.
-  - 총 53건 중 23건
-  - 주로 `query`, `page_size`, `only_open`, `sort`, `category`가 틀린다.
+  - 원장 기준으로 가장 자주 반복되는 함수도 `search_restaurants`였다.
+  - 주로 `query`, `category`, `only_open`, `sort`, `page_size`, `min_rating`이 흔들린다.
 - 주문/장바구니 계열에서는 `special_request` 보존 실패가 가장 많다.
-  - `special_request` 관련 실패 15건
+  - 원장에는 표현 정규화, paraphrase, 일부 요청 소실이 반복적으로 나타난다.
   - 이전 요청을 덮어쓰거나 축약 표현으로 바꾸면서 exact match가 깨진다.
 - 결제/주소 단계에서는 `delivery_note`가 취약하다.
-  - `delivery_note` 관련 실패 10건
+  - 마침표 추가/삭제, 불필요한 메모 유지, 다음 단계로의 잘못된 보존이 반복된다.
   - 불필요한 메모를 추가하거나, 문장부호/어투를 정규화하면서 exact match가 깨진다.
 - 난이도가 높은 케이스는 대부분 두 종류다.
   - 대화 중간에 검색 의도/카테고리/정렬이 자주 바뀌는 경우
@@ -86,7 +101,7 @@
 - 우선 활용 방안
   - noisy user 샘플을 유지하되, 최종 의도 확정 전략을 강화하는 학습 샘플 보강이 필요하다.
 
-## 파라미터별 실패 빈도
+## 파라미터별 mismatch 발생 빈도
 
 | 파라미터 | 실패 수 | 관찰 |
 | --- | ---: | --- |
@@ -98,19 +113,23 @@
 | `sort` | 6 | `relevance`와 `rating` 혼동 |
 | `category` | 6 | 카테고리 누락 또는 query/category 슬롯 뒤바뀜 |
 
-## 함수별 실패 빈도
+한 `argument_value` step 안에 여러 파라미터 mismatch가 동시에 있을 수 있으므로, 위 표는 step 수가 아니라 파라미터 mismatch 발생 횟수 기준이다.
+
+## 함수별 step 실패 빈도
 
 | 함수 | 실패 수 | 핵심 원인 |
 | --- | ---: | --- |
-| `search_restaurants` | 23 | 검색 조건 슬롯 누락, 기본값 회귀, 이전 턴 조건 간섭 |
-| `add_to_cart` | 9 | `special_request` 축약, 메뉴/수량 매핑 오류 |
-| `update_cart_item` | 8 | 누적 요청 보존 실패, 대상 cart item 혼동 |
-| `upsert_address` | 6 | 기존 주소 오인, `delivery_note/is_default` 임의 추가 |
-| `prepare_checkout` | 5 | 메모 문장 정규화로 exact match 실패 |
-| `remove_cart_items` | 1 | 잘못된 `cart_item_id` 선택 |
+| `search_restaurants` | 33 | 검색 조건 슬롯 누락, 기본값 회귀, 이전 턴 조건 간섭 |
+| `upsert_address` | 3 | 주소 본문 분해 오류, `delivery_note/is_default` 임의 추가 |
+| `add_to_cart` | 2 | `special_request` 축약, 메뉴/수량 매핑 오류 |
+| `update_cart_item` | 1 | 누적 요청 보존 실패와 대상 row 추적 오류 |
+| `prepare_checkout` | 1 | `delivery_note` 문자열 보존 실패 |
 | `get_restaurant_detail` | 1 | 시간 기준 `at` 누락 |
 
 ## 대표 실패 사례
+
+이 섹션은 이전 상세 원장에서 핵심적인 패턴만 추려 남긴다.
+전체 turn-by-turn 비교가 다시 필요하면 평가 산출물 원본을 참고한다.
 
 ### 1. 검색어가 빠지고 이전 필터가 끼어드는 패턴
 
@@ -216,7 +235,7 @@
 
 ## 모델 오류와 평가 민감도를 나눠서 볼 필요가 있는 구간
 
-모든 `argument_value_acc` 실패를 같은 무게로 보면 실제 개선 우선순위가 흐려진다. 이번 53건은 크게 세 층위로 나뉜다.
+모든 `argument_value_acc` 실패를 같은 무게로 보면 실제 개선 우선순위가 흐려진다. 원장 기준 `argument_value` step 실패는 `41`건이고, 아래 세부 mismatch 메모는 `53`개다. step 수와 세부 메모 수를 분리해서 보면 크게 세 층위로 나뉜다.
 
 ### 1. 실제 기능 오작동 가능성이 큰 실패
 
@@ -249,7 +268,18 @@
   - 다만 현재 목표가 exact match라면 모델도 그 규칙을 맞춰야 하므로 완전히 무시할 수는 없다.
   - 보고 시에는 “실제 오작동”과 분리해서 보는 편이 합리적이다.
 
-## 개선 포인트
+## 다음 단계로 넘길 질문
+
+이 문서는 `argument_value` 실패를 확정 수정안으로 바로 바꾸지 않고, 원인 분석 단계로 넘길 문제 축을 정리한다.
+
+다음 질문:
+
+- `search_restaurants`의 `query/category/sort/only_open/page_size` 혼선은 모델 실수인가, tool schema와 datagen 규칙 문제인가?
+- `special_request`와 `delivery_note`는 자연어 생성 대상인가, exact copy 대상인가?
+- 잘못된 `cart_item_id`, `menu_item_id`, `address_id` 선택은 데이터 분포 부족인가, 상태 표현 방식 문제인가?
+- exact match 민감도 때문에 커진 실패와 실제 기능 오작동 위험이 큰 실패를 어떻게 분리할 것인가?
+
+## 개선 후보 메모
 
 1. `search_restaurants` 전용 데이터에서 `query/category/sort/only_open/page/page_size`를 동시에 바꾸는 멀티턴 전환 사례를 더 늘릴 필요가 있다.
 2. `special_request`와 `delivery_note`는 "요약 금지, 문자열 보존" 규칙을 명시적으로 학습시켜야 한다.
@@ -257,7 +287,10 @@
 4. `page/page_size/at/is_default`처럼 생략 가능해 보이는 필드도 GT에 명시되면 그대로 복제하도록 평가-학습 간 규약을 맞추는 것이 좋다.
 5. 자기 수정 발화가 많은 noisy 대화 샘플에서 "최종 의도만 채택"하는 예시를 추가하는 것이 효과적일 가능성이 높다.
 
-## 바로 실행 가능한 보강 데이터 제안
+## 보강 데이터 후보 메모
+
+이 문서는 앞으로도 `argument_value` 전체 문제를 추적하는 기준 문서로 유지한다.
+다른 문제 축이 생기면 같은 폴더에 별도 해결 문서를 추가하고, 여기에는 전체 문제 지도와 우선순위만 계속 누적한다.
 
 1. 검색 전환형 샘플 20~30개 추가
    - `query/category/sort/only_open/page/page_size`를 2~4턴 동안 계속 바꾸는 구조
@@ -270,7 +303,7 @@
 5. noisy self-correction 샘플 추가
    - `A 아니고 B`, `2개 아니고 3개`, `그 집 말고 저 집` 같은 마지막 의도 확정형 발화 중심
 
-## 전체 실패 목록
+## 세부 mismatch 메모 목록
 
 - `sample_0001.txt` / turn 1 / `search_restaurants` / `query: 브런치 -> <MISSING>`
 - `sample_0001.txt` / turn 2 / `search_restaurants` / `only_open: <MISSING> -> true`, `page_size: 5 -> 20`

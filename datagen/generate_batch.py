@@ -43,10 +43,9 @@ from datagen.config import (
     USER_IDS,
     generate_random_date,
     pick_random_yn,
-    tools,
-    tools_return_format,
 )
 from datagen.prompts import SYSTEM_PROMPT_FIXED, build_user_prompt
+from datagen.tool_specs import tools, tools_return_format
 
 
 def load_questions(url: str = CHATBOT_DATA_URL) -> list[str]:

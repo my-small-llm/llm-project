@@ -35,9 +35,9 @@ try:
 except ImportError:
     _TOKENIZER_AVAILABLE = False
 
-# datagen.config에서 tools 명세 가져오기
+# 공통 tool spec 가져오기
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from datagen.config import tools as TOOLS_SPEC
+from datagen.tool_specs import tools as TOOLS_SPEC
 
 
 # ── 파싱 유틸 ──────────────────────────────────────────────────────────────

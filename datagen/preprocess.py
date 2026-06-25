@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from datagen.config import tools
+from datagen.tool_specs import tools
 
 
 def parse_metadata(text: str) -> tuple[str | None, str | None]:
@@ -161,7 +161,7 @@ def generate_qwen_system_prompt(
     Qwen 2.5 Function Calling 형식의 시스템 프롬프트를 생성합니다.
 
     Args:
-        tools: 함수 스펙 리스트 (config.tools)
+        tools: 함수 스펙 리스트 (datagen.tool_specs.tools)
         uid: 고객 ID (예: "U002")
         current_date: 대화 날짜
 

@@ -32,10 +32,9 @@ from datagen.config import (
     USER_IDS,
     GOLD_CATEGORIES,
     generate_random_date,
-    tools,
-    tools_return_format,
 )
 from datagen.prompts import SYSTEM_PROMPT_FIXED, build_gold_user_prompt
+from datagen.tool_specs import tools, tools_return_format
 
 
 def make_gold_request_body(category_name: str, instruction: str, request_idx: int) -> dict:

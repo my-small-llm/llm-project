@@ -18,8 +18,8 @@ async def search_restaurants(
     query: Optional[str] = None,       # 식당명 또는 메뉴명 검색
     category: Optional[str] = None,    # restaurants.category 문자열 필터
     min_rating: Optional[float] = None,# 숫자 기준이 명시된 경우에만 사용하는 최소 평점
-    only_open: bool = False,           # '영업 중만'이 명시된 경우에만 true 사용
-    sort: str = "rating",              # 정렬 요청이 있을 때만 명시, 기본은 백엔드 rating
+    only_open: Optional[bool] = None,  # '영업 중만'이 명시된 경우에만 사용
+    sort: Optional[str] = None,        # 정렬 요청이 있을 때만 명시, 생략 시 백엔드 기본값 적용
 ) -> dict  # Page 구조 반환
 ```
 

@@ -4,32 +4,15 @@ from __future__ import annotations
 import inspect
 import json
 import re
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, get_args, get_origin, get_type_hints
 
-# docs/custom_functions.py를 동적으로 import
-import importlib.util
-
-_CUSTOM_FUNCTIONS_PATH = (
-    Path(__file__).parent.parent.parent / "docs" / "custom_functions.py"
-)
-
-
-def _load_custom_functions_module():
-    spec = importlib.util.spec_from_file_location("custom_functions", _CUSTOM_FUNCTIONS_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-_mod = _load_custom_functions_module()
+from datagen import tool_specs as _tool_specs
 
 # 함수 이름 → 함수 객체 매핑
 FUNCTIONS: dict[str, Any] = {
     name: obj
-    for name, obj in inspect.getmembers(_mod, inspect.isfunction)
+    for name, obj in inspect.getmembers(_tool_specs, inspect.isfunction)
 }
 
 

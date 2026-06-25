@@ -1,7 +1,7 @@
 # dataanalyzer
 
 학습 데이터셋의 품질과 분포를 시각적으로 분석하는 모듈이다.
-`datagen/preprocess.py`가 생성한 `*.jsonl` 파일을 입력으로 받아 8가지 분석을 수행하고, 차트 이미지와 텍스트 리포트를 출력한다.
+`datagen/preprocess.py`가 생성한 `*.jsonl` 파일을 입력으로 받아 7가지 분석을 수행하고, 차트 이미지와 텍스트 리포트를 출력한다.
 
 ## 파일 구성
 
@@ -24,7 +24,7 @@ dataanalyzer/
 | `load_records(target_dir)` | 디렉토리 내 모든 `*.jsonl`을 읽어 `messages` 키가 있는 레코드만 반환 |
 | `_parse_tool_call(content)` | `<tool_call>...</tool_call>` 블록을 파싱해 dict 반환 |
 | `_parse_tool_response_raw(content)` | `<tool_response>...</tool_response>` 블록의 원문 문자열 반환 |
-| `_get_optional_params()` | `datagen/config.py`의 `tools` 명세에서 함수별 optional 파라미터 목록 추출 |
+| `_get_optional_params()` | `datagen/tool_specs.py`의 `tools` 명세에서 함수별 optional 파라미터 목록 추출 |
 
 #### 분석 함수
 
@@ -105,7 +105,7 @@ python -m dataanalyzer \
 
 ## 의존성
 
-- `datagen/config.py`: `tools` 명세에서 optional 파라미터 정보를 가져온다. 함수 스키마가 변경되면 분석 결과도 자동으로 반영된다.
+- `datagen/tool_specs.py`: `tools` 명세에서 optional 파라미터 정보를 가져온다. 함수 스키마가 변경되면 분석 결과도 자동으로 반영된다.
 - `transformers.AutoTokenizer`: 토큰 수 계산에 사용. `transformers` 패키지가 없으면 실행 불가.
 - `matplotlib`: 차트 생성. 헤드리스 환경을 위해 `Agg` 백엔드를 사용하며, 한글 레이블을 위해 Noto Sans CJK KR 폰트를 자동 감지한다.
 
